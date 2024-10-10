@@ -1,11 +1,14 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Foundation from '@expo/vector-icons/Foundation';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Colors from "../../constants/colors";
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#ffd33d",
+        tabBarActiveTintColor: "#c2d4d4",
         headerStyle: {
           backgroundColor: "#25292e",
         },
@@ -14,15 +17,19 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: "#25292e",
         },
+        tabBarLabelStyle: {
+          display: "none", // Hides the label text
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          headerShown: false,
+          title: "",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "home-sharp" : "home-outline"}
+            <FontAwesome
+              name={focused ? "file-text" : "file-text-o"}
               color={color}
               size={24}
             />
@@ -30,13 +37,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="about"
+        name="search"
         options={{
-          title: "About",
+          title: "Search",
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={
-                focused ? "information-circle" : "information-circle-outline"
+                focused ? "search" : "search-outline"
               }
               color={color}
               size={24}
