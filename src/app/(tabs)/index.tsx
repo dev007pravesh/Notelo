@@ -1,15 +1,17 @@
-import { Text, View, StyleSheet, SafeAreaView, TouchableOpacity,FlatList } from 'react-native';
+import { Text, View, StyleSheet, SafeAreaView, TouchableOpacity,FlatList, StatusBar, Pressable} from 'react-native';
 import { Link } from 'expo-router';
 import CustomHeader from '../../components/header';
 import Colors from '../../constants/colors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+
 
 export default function Index() {
   const notes = [
     {
       id: 1,
       shortTitle: "Grocery List",
-      description: "Buy milk, eggs, bread, and fruits from the supermarket.",
+      description: "Buy milk, eggs, bread, and fruits from the supermarket. Buy milk, eggs, bread, and fruits from the supermarket. Buy milk, eggs, bread, and fruits from the supermarket. Buy milk, eggs, bread, and fruits from the supermarket. Buy milk, eggs, bread, and fruits from the supermarket. Buy milk, eggs, bread, and fruits from the supermarket.",
       addedDate: "2024-10-01",
       addedTime: "09:30 AM",
     },
@@ -147,7 +149,6 @@ export default function Index() {
       addedTime: "09:45 AM",
     },
   ];
-
   type Note = {
     id: number;
     shortTitle: string;
@@ -156,17 +157,20 @@ export default function Index() {
     addedTime: string;
   };
   const renderNote = ({ item }: { item: Note }) => (
-    <View style={styles.noteContainer}>
-      <Text style={styles.title}>{item.shortTitle}</Text>
-      <Text style={styles.description}>{item.description}</Text>
-      <Text style={styles.date}>{item.addedDate} - {item.addedTime}</Text>
-    </View>
+    <Link href='./../addNote' asChild>
+      <Pressable style={styles.noteContainer} onLongPress={()=>console.log('------------onlong press active')}>
+        <Text style={styles.title}>{item.shortTitle}</Text>
+        <Text style={styles.description} numberOfLines={4}>{item.description}</Text>
+        <Text style={styles.date}>{item.addedDate} - {item.addedTime}</Text>
+      </Pressable>
+    </Link>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>  
       <CustomHeader title="Home" showBackButton={false} />
       {notes.length > 0 ? (
+        <>
         <FlatList
           data={notes}
           renderItem={renderNote}
@@ -175,6 +179,12 @@ export default function Index() {
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContainer}
         />
+        <Link href='./../addNote' asChild>
+          <TouchableOpacity style={styles.floatingButton} >
+            <FontAwesome name="plus" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </Link>
+        </>
       ) : (
         <View style={styles.container}>
           <Link href="/search" asChild>
@@ -193,6 +203,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+    paddingTop:  StatusBar.currentHeight || 0,
   },
   listContainer: {
     padding: 10,
@@ -210,18 +221,33 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily:'requiner',
     color: Colors.lightSlate,
     marginBottom: 5,
   },
   description: {
     fontSize: 14,
+    // fontFamily:'premint',
     color: Colors.lightSlate,
     marginBottom: 5,
   },
   date: {
     fontSize: 12,
     color: Colors.lightSlate,
+  },
+  floatingButton: {
+    position:'absolute',
+    // alignSelf:'center',
+    bottom:30,
+    right:40,
+    backgroundColor: 'transparent',  // Color of the button
+    borderRadius: 30,            // Makes it circular
+    borderWidth:1,
+    borderColor:Colors.lightSlate,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,
