@@ -159,7 +159,7 @@ export default function Index() {
   const renderNote = ({ item }: { item: Note }) => (
     <Link href='./../addNote' asChild>
       <Pressable style={styles.noteContainer} onLongPress={()=>console.log('------------onlong press active')}>
-        <Text style={styles.title}>{item.shortTitle}</Text>
+        <Text style={styles.title} numberOfLines={4}>{item.shortTitle}</Text>
         <Text style={styles.description} numberOfLines={4}>{item.description}</Text>
         <Text style={styles.date}>{item.addedDate} - {item.addedTime}</Text>
       </Pressable>
@@ -181,7 +181,7 @@ export default function Index() {
         />
         <Link href='./../addNote' asChild>
           <TouchableOpacity style={styles.floatingButton} >
-            <FontAwesome name="plus" size={24} color={Colors.white} />
+            <FontAwesome name="plus" size={24} color={Colors.background} />
           </TouchableOpacity>
         </Link>
         </>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     // alignSelf:'center',
     bottom:30,
     right:40,
-    backgroundColor: 'transparent',  // Color of the button
+    backgroundColor: Colors.lightSlate,  // Color of the button
     borderRadius: 30,            // Makes it circular
     borderWidth:1,
     borderColor:Colors.lightSlate,
