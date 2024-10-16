@@ -32,12 +32,19 @@ export default function RootLayout() {
     return null;
   }
   return (
-    <Stack>
+    <Stack
+    screenOptions={{
+      headerStyle: {
+        backgroundColor: "#25292e",
+      },
+      headerShadowVisible: false,
+      headerTintColor: "#fff",
+    }}
+    >
       <Stack.Screen
         name="(tabs)"
         options={{
-          headerShown: false,
-          header: () => <CustomHeader title="Home" showBackButton={false} />,
+          headerShown: false
         }}
       />
       <Stack.Screen
