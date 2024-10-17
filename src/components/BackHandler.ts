@@ -8,7 +8,7 @@ const useBackPressHandler = () => {
   useEffect(() => {
     const backAction = () => {
       // Navigate back to the tab index
-      router.replace("./(tabs)");
+      router.push("./(tabs)");
 
       // Return true to indicate that the back press is handled
       return true;

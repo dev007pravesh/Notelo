@@ -11,6 +11,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
 
 const SearchScreen: React.FC = () => {
   const [searchText, setSearchText] = useState<string>("");
@@ -18,6 +19,7 @@ const SearchScreen: React.FC = () => {
   const [filteredNotes, setFilteredNotes] = useState<any[]>([]);
 
   useEffect(() => {
+    setStatusBarStyle("light");
     const fetchNotes = async () => {
       try {
         const notesString = await AsyncStorage.getItem("addedNotes");

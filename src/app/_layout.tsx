@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import CustomHeader from "../components/header";
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -32,14 +33,9 @@ export default function RootLayout() {
     return null;
   }
   return (
+    <>
+    <StatusBar style="light" /> 
     <Stack
-    screenOptions={{
-      headerStyle: {
-        backgroundColor: "#25292e",
-      },
-      headerShadowVisible: false,
-      headerTintColor: "#fff",
-    }}
     >
       <Stack.Screen
         name="(tabs)"
@@ -54,5 +50,7 @@ export default function RootLayout() {
         }}
       />
     </Stack>
+    </>
+   
   );
 }

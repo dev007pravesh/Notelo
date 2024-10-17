@@ -8,6 +8,8 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  BackHandler,
+  Alert,
 } from "react-native";
 import Colors from "../constants/colors";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -21,12 +23,13 @@ import { nanoid } from "nanoid";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import useBackPressHandler from "../components/BackHandler";
+import FullPageLoader from "../components/loader";
 
 const { width, height } = Dimensions.get("window");
 const numberOfLines = 25;
 
 const EditableMultilineComponent: React.FC = () => {
-  useBackPressHandler();
+  // useBackPressHandler();
 
   const { id, shortTitle, description, addedDate, addedTime } =
     useLocalSearchParams<{
@@ -40,6 +43,7 @@ const EditableMultilineComponent: React.FC = () => {
   const [headerText, setHeaderText] = useState<string>("");
   const [multilineText, setMultilineText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isLoad, setIsLoad] = useState<boolean>(false);
 
   const renderLines = () => {
     // Define the number of lines you want in the background
@@ -94,20 +98,21 @@ const EditableMultilineComponent: React.FC = () => {
   };
 
   const handlePress = async () => {
-    // setIsProcessing(true);
+    setIsProcessing(true);
     try {
-      console.log("length of text is:", newNote.description.trim().length);
+      // console.log("length of text is:", newNote.description.trim().length);
       if (
         newNote.description.trim().length > 0 &&
         newNote.shortTitle.trim().length > 0
       ) {
+        setIsLoad(true)
         await saveNote(newNote); // Assuming saveNote is an async
-        // Once the processing is done, navigate
-        // await AsyncStorage.removeItem('addedNotes');
         setTimeout(() => {
           router.push("./(tabs)");
+          // setIsLoad(false)
         }, 1000);
       } else {
+        setIsLoad(false)
         console.error("Note cannot be empty.");
       }
     } catch (error) {
@@ -137,8 +142,56 @@ const EditableMultilineComponent: React.FC = () => {
     setIsProcessing(false);
   };
 
+  useEffect(() => {
+    const backAction = () => {
+      if (
+        newNote.description.trim().length > 0 &&
+        newNote.shortTitle.trim().length > 0
+      ) {
+        Alert.alert(
+          "Unsaved Note",
+          "You have unsaved changes. Do you want to save the note before exiting?",
+          [
+            {
+              text: "No, Exit",
+              onPress: () =>  router.push("./(tabs)"),
+              style: "destructive", // Makes the button red on iOS
+            },
+            {
+              text: "Save",
+              onPress: async () => {
+                setIsLoad(true);
+                await saveNote(newNote);
+                setTimeout(() => {
+                  router.push("./(tabs)");
+                }, 1000);
+              },
+            },
+          ],
+          { cancelable: true }
+        );
+      } else {
+        // If there's nothing to save, simply exit the app
+        router.push("./(tabs)")
+        // BackHandler.exitApp();
+      }
+      return true; // Indicate that the back press is handled
+    };
+
+    // Add the back press event listener
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    // Clean up the event listener on unmount
+    return () => backHandler.remove();
+  }, [router, newNote, saveNote, setIsLoad]);
+
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+    {isLoad ? <FullPageLoader/> : 
+      <SafeAreaView style={styles.container}>
       {/* Header Input */}
       <View style={styles.containerHeader}>
         <TouchableOpacity
@@ -197,6 +250,12 @@ const EditableMultilineComponent: React.FC = () => {
         </ScrollView>
       </View>
     </SafeAreaView>
+    }
+    
+    </>
+      
+    
+   
   );
 };
 
