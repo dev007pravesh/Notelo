@@ -33,6 +33,7 @@ const Index: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<string[]>([]);
   const [isItemSelected, setIsItemSelected] = useState<boolean>(false);
   const [isLoad, setIsLoad] = useState<boolean>(false);
+  const [listView, setlistView] = useState<boolean>(true);
 
   const fetchAddedNotes = async () => {
     try {
@@ -216,6 +217,10 @@ const Index: React.FC = () => {
     );
   };
 
+  const toggleListView = ()=>{
+    setlistView(!listView);
+  }
+
   return (
     <>
       {isLoad ? (
@@ -229,7 +234,7 @@ const Index: React.FC = () => {
               </TouchableOpacity>
             </View>
           ) : (
-            <CustomHeader title="Home" showBackButton={false} />
+            <CustomHeader title="Home" showBackButton={false} toggleView= {toggleListView} />
           )}
 
           {addedNotes.length > 0 ? (
@@ -238,8 +243,10 @@ const Index: React.FC = () => {
                 data={addedNotes}
                 renderItem={renderNote}
                 keyExtractor={(item) => item.id.toString()}
-                numColumns={2}
-                columnWrapperStyle={styles.columnWrapper}
+                numColumns={listView ? 1 : 2}
+                // Add a key prop to force a fresh render when changing the view
+                key={listView ? 'list' : 'grid'} 
+                columnWrapperStyle={listView ? undefined : styles.columnWrapper}
                 contentContainerStyle={styles.listContainer}
               />
               <Link href="./../addNote" replace asChild>

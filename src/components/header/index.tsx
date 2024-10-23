@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,14 +11,28 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons"; // Make sure you have @expo/vector-icons installed
 import Colors from "../../constants/colors";
 import Entypo from "@expo/vector-icons/Entypo";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 type CustomHeaderProps = {
   title: string;
-  showBackButton?: boolean; // Make showBackButton optional
+  showBackButton?: boolean; // Make showBackButton optional,
+  toggleView?: () => void;
 };
 
-const CustomHeader = ({ title, showBackButton }: CustomHeaderProps) => {
+const CustomHeader = ({
+  title,
+  showBackButton,
+  toggleView,
+}: CustomHeaderProps) => {
   const navigation = useNavigation();
+  const [listView, setlistView] = useState(true);
+
+  const toggleListView = () => {
+    setlistView(!listView);
+    if (toggleView) {
+      toggleView(); // Call toggleView only if it is defined
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -33,12 +47,20 @@ const CustomHeader = ({ title, showBackButton }: CustomHeaderProps) => {
       <View style={styles.backButton}>
         <Text style={styles.text}>NoteLo</Text>
       </View>
-      <TouchableOpacity onPress={() => console.log("pressed")}>
-        <Entypo
-          name="dots-three-vertical"
-          size={20}
-          color={Colors.lightSlate}
-        />
+      <TouchableOpacity onPress={toggleListView}>
+        {listView ? (
+          <MaterialCommunityIcons
+            name="view-grid"
+            size={30}
+            color={Colors.lightSlate}
+          />
+        ) : (
+          <MaterialCommunityIcons
+            name="view-sequential"
+            size={30}
+            color={Colors.lightSlate}
+          />
+        )}
       </TouchableOpacity>
     </View>
   );

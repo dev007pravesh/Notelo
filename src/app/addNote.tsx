@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   TextInput,
@@ -24,8 +24,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import useBackPressHandler from "../components/BackHandler";
 import FullPageLoader from "../components/loader";
-
 const { width, height } = Dimensions.get("window");
+import showToast from "../utils/toast";
+import Toast from "react-native-toast-message";
 const numberOfLines = 25;
 
 const EditableMultilineComponent: React.FC = () => {
@@ -44,6 +45,8 @@ const EditableMultilineComponent: React.FC = () => {
   const [multilineText, setMultilineText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isLoad, setIsLoad] = useState<boolean>(false);
+  const [isEdited, setIsEdited] = useState<boolean>(false);
+  const inputRef = useRef<TextInput>(null);
 
   const renderLines = () => {
     // Define the number of lines you want in the background
@@ -97,29 +100,45 @@ const EditableMultilineComponent: React.FC = () => {
     addedTime: dayjs().format("hh:mm A"),
   };
 
-  const handlePress = async () => {
-    setIsProcessing(true);
+  const handleSubmit = async () => {
+    // setIsProcessing(true);
+    setIsEdited(false);
+    handleTouchOutside();
     try {
       // console.log("length of text is:", newNote.description.trim().length);
       if (
         newNote.description.trim().length > 0 &&
         newNote.shortTitle.trim().length > 0
       ) {
-        setIsLoad(true)
+        // setIsLoad(true);
         await saveNote(newNote); // Assuming saveNote is an async
-        setTimeout(() => {
-          router.push("./(tabs)");
-          // setIsLoad(false)
-        }, 1000);
+        // setTimeout(() => {
+        //   router.push("./(tabs)");
+        //   // setIsLoad(false)
+        // }, 1000);
       } else {
-        setIsLoad(false)
-        console.error("Note cannot be empty.");
+        // setIsLoad(false);
+        showToast({
+          type: 2, // Error
+          title: "Error",
+          text: "Can't save an empty note. Please add some text.",
+        });
+        // console.error("Note cannot be empty.");
       }
     } catch (error) {
       console.error("Error saving note:", error);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const toggleIsEdit = () => {
+    setIsEdited(true);
+  };
+
+  const handleTouchOutside = () => {
+    // Blur the TextInput when tapping outside
+    inputRef.current?.blur();
   };
 
   useFocusEffect(
@@ -136,17 +155,86 @@ const EditableMultilineComponent: React.FC = () => {
     }, [id, shortTitle, description])
   );
 
-  const reSet = () => {
-    setHeaderText("");
-    setMultilineText("");
-    setIsProcessing(false);
+  const deleteNote = () => {
+    Alert.alert(
+      "Delete Note",
+      "Are you sure? you want to move the note to the trash can ?",
+      [
+        {
+          text: "No, Exit",
+          // onPress: () => router.push("./(tabs)"),
+          style: "destructive", // Makes the button red on iOS
+        },
+        {
+          text: "Delete",
+          onPress: async () => {
+            try {
+              const currentNotesString = await AsyncStorage.getItem(
+                "addedNotes"
+              );
+
+              // console.log('-----remove------',currentNotesString);
+              // return false;
+              if (currentNotesString) {
+                const currentNotes: Note[] = JSON.parse(currentNotesString);
+                const updatedNotes = currentNotes.filter(
+                  (note) => note.id != id
+                );
+
+                const sortedNotes: Note[] = updatedNotes.sort((a, b) => {
+                  // Combine date and time into a single Date object
+                  const dateA = new Date(
+                    `${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`
+                  );
+                  const dateB = new Date(
+                    `${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`
+                  );
+
+                  // Sort in descending order
+                  return dateB.getTime() - dateA.getTime(); // If you want ascending, use dateA.getTime() - dateB.getTime()
+                });
+
+                // Save updated notes back to AsyncStorage
+                await AsyncStorage.setItem(
+                  "addedNotes",
+                  JSON.stringify(sortedNotes)
+                );
+              }
+            } catch (error) {
+              console.error("Error removing selected notes:", error);
+            }
+            setTimeout(() => {
+              router.push("./(tabs)");
+            }, 1000);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const convertTimeTo24Hour = (time: string): string => {
+    const [timePart, modifier] = time.split(" ");
+    let [hours, minutes] = timePart.split(":").map(Number);
+
+    if (modifier === "PM" && hours < 12) {
+      hours += 12; // Convert PM hours to 24-hour format
+    }
+    if (modifier === "AM" && hours === 12) {
+      hours = 0; // Convert 12 AM to 0 hours
+    }
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:00`; // Return time in HH:MM:SS format
   };
 
   useEffect(() => {
     const backAction = () => {
       if (
         newNote.description.trim().length > 0 &&
-        newNote.shortTitle.trim().length > 0
+        newNote.shortTitle.trim().length > 0 &&
+        isEdited
       ) {
         Alert.alert(
           "Unsaved Note",
@@ -154,7 +242,7 @@ const EditableMultilineComponent: React.FC = () => {
           [
             {
               text: "No, Exit",
-              onPress: () =>  router.push("./(tabs)"),
+              onPress: () => router.push("./(tabs)"),
               style: "destructive", // Makes the button red on iOS
             },
             {
@@ -172,7 +260,7 @@ const EditableMultilineComponent: React.FC = () => {
         );
       } else {
         // If there's nothing to save, simply exit the app
-        router.push("./(tabs)")
+        router.push("./(tabs)");
         // BackHandler.exitApp();
       }
       return true; // Indicate that the back press is handled
@@ -188,74 +276,101 @@ const EditableMultilineComponent: React.FC = () => {
     return () => backHandler.remove();
   }, [router, newNote, saveNote, setIsLoad]);
 
+  console.log("-=id", id);
+
   return (
     <>
-    {isLoad ? <FullPageLoader/> : 
-      <SafeAreaView style={styles.container}>
-      {/* Header Input */}
-      <View style={styles.containerHeader}>
-        <TouchableOpacity
-          style={styles.doneIcon}
-          disabled={isProcessing}
-          onPress={() => {
-            handlePress();
-            console.log("done chalega kya");
-          }}
-        >
-          <Ionicons
-            name="checkmark-done-outline"
-            size={20}
-            color={Colors.lightSlate}
-          />
-        </TouchableOpacity>
+      {isLoad ? (
+        <FullPageLoader />
+      ) : (
+        <SafeAreaView style={styles.container}>
+          {/* Header Input */}
+          <View style={styles.containerHeader}>
+            {isEdited ? (
+              <TouchableOpacity
+                style={styles.doneIcon}
+                disabled={isProcessing}
+                onPress={() => {
+                  handleSubmit();
+                }}
+              >
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={20}
+                  color={Colors.lightSlate}
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.doneIcon}
+                disabled={isProcessing}
+                onPress={() => {
+                  router.push("./(tabs)");
+                }}
+              >
+                <Ionicons
+                  name="arrow-back-outline"
+                  size={20}
+                  color={Colors.lightSlate}
+                />
+              </TouchableOpacity>
+            )}
 
-        <TextInput
-          style={styles.headerInput}
-          value={headerText}
-          onChangeText={setHeaderText}
-          placeholder="Enter text"
-          placeholderTextColor="#666"
-          selectionColor={Colors.background}
-          maxLength={30}
-        />
+            <TextInput
+              ref={inputRef}
+              onKeyPress={toggleIsEdit}
+              style={styles.headerInput}
+              value={headerText}
+              onChangeText={setHeaderText}
+              placeholder="Enter text"
+              placeholderTextColor="#666"
+              selectionColor={Colors.background}
+              maxLength={30}
+            />
+            {id && (
+              <TouchableOpacity
+                style={styles.verticleDot}
+                onPress={() => deleteNote()}
+              >
+                {/* <Entypo name="dots-three-vertical" size={20} color={Colors.lightSlate} /> */}
+                <AntDesign name="delete" size={20} color={Colors.lightSlate} />
+              </TouchableOpacity>
+            )}
+          </View>
 
-        <TouchableOpacity style={styles.verticleDot} onPress={() => reSet()}>
-          <AntDesign name="delete" size={20} color={Colors.lightSlate} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Multiline Text Input with Lines in the Background */}
-      <View style={styles.multilineContainer}>
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {renderLines()}
-          <TextInput
-            style={styles.multilineInput}
-            value={multilineText}
-            onChangeText={(text) => {
-              setMultilineText(text);
-              !id && setHeaderText(text.substring(0, 18));
-            }}
-            multiline={true}
-            textAlignVertical="top" // Align text to the top in multiline input
-            placeholder="Enter list items here..."
-            placeholderTextColor="#666"
-            numberOfLines={numberOfLines}
-            selectionColor={Colors.lightSlate}
-            // editable = {false}
-          />
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-    }
-    
+          {/* Multiline Text Input with Lines in the Background */}
+          <TouchableOpacity style={styles.multilineContainer}>
+            <ScrollView
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {renderLines()}
+              <TextInput
+                ref={inputRef}
+                onKeyPress={toggleIsEdit}
+                style={styles.multilineInput}
+                value={multilineText}
+                onChangeText={(text) => {
+                  setMultilineText(text);
+                  !id &&
+                    headerText.length <= 5 &&
+                    setHeaderText(text.substring(0, 18));
+                }}
+                multiline={true}
+                textAlignVertical="top" // Align text to the top in multiline input
+                placeholder="Enter list items here..."
+                placeholderTextColor="#666"
+                numberOfLines={numberOfLines}
+                selectionColor={Colors.lightSlate}
+                // editable = {isEdited}
+              />
+            </ScrollView>
+          </TouchableOpacity>
+          <Toast />
+        </SafeAreaView>
+      )}
     </>
-      
-    
-   
   );
 };
 
@@ -283,6 +398,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.lightSlate,
     margin: 1,
+    paddingHorizontal:8,
   },
   verticleDot: {
     flex: 0.2,
