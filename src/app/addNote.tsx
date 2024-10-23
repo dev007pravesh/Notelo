@@ -276,7 +276,7 @@ const EditableMultilineComponent: React.FC = () => {
     return () => backHandler.remove();
   }, [router, newNote, saveNote, setIsLoad]);
 
-  console.log("-=id", id);
+  // console.log("-=id", id);
 
   return (
     <>
