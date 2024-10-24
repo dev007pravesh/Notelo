@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   TextInput,
@@ -12,29 +12,38 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
+import { useFocusEffect } from "@react-navigation/native";
 
 const SearchScreen: React.FC = () => {
   const [searchText, setSearchText] = useState<string>("");
   const [notes, setNotes] = useState<any[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<any[]>([]);
 
-  useEffect(() => {
-    setStatusBarStyle("light");
-    const fetchNotes = async () => {
-      try {
-        const notesString = await AsyncStorage.getItem("addedNotes");
-        if (notesString) {
-          const parsedNotes = JSON.parse(notesString);
-          setNotes(parsedNotes);
-          setFilteredNotes(parsedNotes);
-        }
-      } catch (error) {
-        console.error("Error fetching notes from AsyncStorage:", error);
-      }
-    };
+  // useFocusEffect(() => {
+  //   useCallback(() => {
+  //     fetchNotes();
+  //   }, []);
+  // });
 
-    fetchNotes();
-  }, []);
+ 
+  useFocusEffect(
+    useCallback(()=>{
+      fetchNotes();
+    },[])
+  )
+  const fetchNotes = async () => {
+    setStatusBarStyle("light");
+    try {
+      const notesString = await AsyncStorage.getItem("addedNotes");
+      if (notesString) {
+        const parsedNotes = JSON.parse(notesString);
+        setNotes(parsedNotes);
+        setFilteredNotes(parsedNotes);
+      }
+    } catch (error) {
+      console.error("Error fetching notes from AsyncStorage:", error);
+    }
+  };
 
   useEffect(() => {
     // Filter notes based on search text
@@ -67,7 +76,6 @@ const SearchScreen: React.FC = () => {
         <Text style={styles.itemText}>{item.shortTitle}</Text>
       </TouchableOpacity>
     </Link>
-    
   );
 
   return (
@@ -75,7 +83,12 @@ const SearchScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#25292e" />
       {/* Search Input */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#c2d4d4" style={styles.searchIcon} />
+        <Ionicons
+          name="search"
+          size={20}
+          color="#c2d4d4"
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search..."
