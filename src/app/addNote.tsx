@@ -102,7 +102,6 @@ const EditableMultilineComponent: React.FC = () => {
 
   const handleSubmit = async () => {
     // setIsProcessing(true);
-    setIsEdited(false);
     handleTouchOutside();
     try {
       // console.log("length of text is:", newNote.description.trim().length);
@@ -112,6 +111,7 @@ const EditableMultilineComponent: React.FC = () => {
       ) {
         // setIsLoad(true);
         await saveNote(newNote); // Assuming saveNote is an async
+        setIsEdited(false);
         // setTimeout(() => {
         //   router.push("./(tabs)");
         //   // setIsLoad(false)

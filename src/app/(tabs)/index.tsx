@@ -54,6 +54,8 @@ const Index: React.FC = () => {
           // Sort in descending order
           return dateB.getTime() - dateA.getTime(); // If you want ascending, use dateA.getTime() - dateB.getTime()
         });
+        const listViewValue = await AsyncStorage.getItem("listView");
+        setlistView(listViewValue?(JSON.parse(listViewValue)): false)
         setAddedNotes(sortedNotes);
         setIsLoad(false);
       } else {
@@ -217,9 +219,11 @@ const Index: React.FC = () => {
     );
   };
 
-  const toggleListView = ()=>{
+  const toggleListView = async ()=>{
     setlistView(!listView);
+    await AsyncStorage.setItem("listView", JSON.stringify(!listView));
   }
+  
 
   return (
     <>
