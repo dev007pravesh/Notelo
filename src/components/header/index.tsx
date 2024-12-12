@@ -13,15 +13,25 @@ import Colors from "../../constants/colors";
 import Entypo from "@expo/vector-icons/Entypo";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
+type Note = {
+  id: string;
+  shortTitle: string;
+  description: string;
+  addedDate: string;
+  addedTime: string;
+};
+
 type CustomHeaderProps = {
   title: string;
   showBackButton?: boolean; // Make showBackButton optional,
+  notes:Note[];
   toggleView?: () => void;
 };
 
 const CustomHeader = ({
   title,
   showBackButton,
+  notes,
   toggleView,
 }: CustomHeaderProps) => {
   const navigation = useNavigation();
@@ -33,6 +43,8 @@ const CustomHeader = ({
       toggleView(); // Call toggleView only if it is defined
     }
   };
+
+  console.log('noteLen========',notes)
 
   return (
     <View style={styles.container}>
@@ -47,7 +59,10 @@ const CustomHeader = ({
       <View style={styles.backButton}>
         <Text style={styles.text}>NoteLo</Text>
       </View>
-      <TouchableOpacity onPress={toggleListView}>
+      {
+        notes.length > 0  &&
+
+        <TouchableOpacity onPress={toggleListView}>
         {listView ? (
           <MaterialCommunityIcons
             name="view-grid"
@@ -62,6 +77,8 @@ const CustomHeader = ({
           />
         )}
       </TouchableOpacity>
+      }
+     
     </View>
   );
 };

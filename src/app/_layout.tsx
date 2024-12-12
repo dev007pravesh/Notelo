@@ -1,7 +1,6 @@
 import { Stack } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { useEffect } from "react";
-import CustomHeader from "../components/header";
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';

@@ -324,7 +324,7 @@ const EditableMultilineComponent: React.FC = () => {
               onChangeText={setHeaderText}
               placeholder="Enter text"
               placeholderTextColor="#666"
-              selectionColor={Colors.background}
+              // selectionColor={Colors.background}
               maxLength={30}
             />
             {id && (
@@ -362,7 +362,7 @@ const EditableMultilineComponent: React.FC = () => {
                 placeholder="Enter list items here..."
                 placeholderTextColor="#666"
                 numberOfLines={numberOfLines}
-                selectionColor={Colors.lightSlate}
+                // selectionColor={Colors.lightSlate}
                 // editable = {isEdited}
               />
             </ScrollView>

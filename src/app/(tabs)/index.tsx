@@ -194,7 +194,7 @@ const Index: React.FC = () => {
         asChild
       >
         <TouchableOpacity
-          style={{ flex: 1, }}
+          style={addedNotes?.length % 2 == 0 && listView ? {width:"50%"}: {flex:1}}
           onLongPress={() => handleLongPress(item.id)}
           onPress={() => handlePress(item.id)}
         >
@@ -238,7 +238,7 @@ const Index: React.FC = () => {
               </TouchableOpacity>
             </View>
           ) : (
-            <CustomHeader title="Home" showBackButton={false} toggleView= {toggleListView} />
+            <CustomHeader title="Home" showBackButton={false} toggleView= {toggleListView} notes ={addedNotes}/>
           )}
 
           {addedNotes.length > 0 ? (

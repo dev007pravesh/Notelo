@@ -2,11 +2,14 @@
   "expo": {
     "name": "Notelo",
     "slug": "Notelo",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": ["notelo"],
+    "newArchEnabled": true,
+    "scheme": [
+      "notelo"
+    ],
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -17,9 +20,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.dev007pravesh.Notelo"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -28,6 +32,12 @@
     "plugins": [
       "expo-router",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a7eed044-4ade-4ea7-b953-c1b80442f50b"
+      }
+    },
+    "owner": "dev007pravesh"
   }
 }
