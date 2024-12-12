@@ -16,7 +16,8 @@
       "backgroundColor": "#bdc9c3"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dev007pravesh.Notelo"
     },
     "android": {
       "adaptiveIcon": {
