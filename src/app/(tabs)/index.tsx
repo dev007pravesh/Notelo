@@ -249,7 +249,7 @@ const Index: React.FC = () => {
                 keyExtractor={(item) => item.id.toString()}
                 numColumns={listView ? 1 : 2}
                 // Add a key prop to force a fresh render when changing the view
-                key={listView ? 'list' : 'grid'} 
+                extraData={listView} 
                 columnWrapperStyle={listView ? undefined : styles.columnWrapper}
                 contentContainerStyle={styles.listContainer}
               />

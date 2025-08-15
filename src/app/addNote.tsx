@@ -55,7 +55,6 @@ const EditableMultilineComponent: React.FC = () => {
     for (let i = 0; i <= numberOfLines; i++) {
       lines.push(<View key={i} style={styles.line} />);
     }
-
     return lines;
   };
 
