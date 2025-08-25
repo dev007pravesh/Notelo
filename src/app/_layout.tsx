@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -20,7 +21,6 @@ export default function RootLayout() {
   useEffect(() => {
     console.log('loaded--------', error)
     if (loaded || error) {
-      
       SplashScreen.hideAsync();
     }
     setTimeout(() => {
@@ -31,25 +31,28 @@ export default function RootLayout() {
   if (!loaded && !error) {
     return null;
   }
+  
   return (
-    <>
-    <StatusBar style="light" /> 
-    <Stack
-    >
-      <Stack.Screen
-        name="(tabs)"
-        options={{
-          headerShown: false
+    <ThemeProvider>
+      <StatusBar style="light" /> 
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: '#000000' }
         }}
-      />
-      <Stack.Screen
-        name="addNote"
-        options={{
-          headerShown: false,
-        }}
-      />
-    </Stack>
-    </>
-   
+      >
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false
+          }}
+        />
+        <Stack.Screen
+          name="addNote"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack>
+    </ThemeProvider>
   );
 }

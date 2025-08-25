@@ -2,23 +2,40 @@ import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Foundation from '@expo/vector-icons/Foundation';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Colors from "../../constants/colors";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function TabLayout() {
+  const { theme, themeMode } = useTheme();
+  
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#c2d4d4",
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textMuted,
         headerStyle: {
-          backgroundColor: "#25292e",
+          backgroundColor: theme.background,
         },
         headerShadowVisible: false,
-        headerTintColor: "#fff",
+        headerTintColor: theme.text,
         tabBarStyle: {
-          backgroundColor: "#25292e",
+          backgroundColor: theme.background,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          shadowColor: theme.primary,
+          shadowOffset: {
+            width: 0,
+            height: -1,
+          },
+          shadowOpacity: 0.08,
+          shadowRadius: 6,
+          elevation: 6,
         },
         tabBarLabelStyle: {
-          display: "none", // Hides the label text
+          fontSize: 1, // Hides the label text but avoids zero value
+          height: 0,
         },
       }}
     >

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
+  Text,
   TextInput,
   StyleSheet,
   TouchableOpacity,
@@ -11,7 +12,7 @@ import {
   BackHandler,
   Alert,
 } from "react-native";
-import Colors from "../constants/colors";
+import { useTheme } from "../contexts/ThemeContext";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -24,6 +25,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import useBackPressHandler from "../components/BackHandler";
 import FullPageLoader from "../components/loader";
+import CustomAlert from "../components/CustomAlert";
 const { width, height } = Dimensions.get("window");
 import showToast from "../utils/toast";
 import Toast from "react-native-toast-message";
@@ -31,29 +33,34 @@ const numberOfLines = 25;
 
 const EditableMultilineComponent: React.FC = () => {
   // useBackPressHandler();
+  const { theme, themeMode } = useTheme();
 
-  const { id, shortTitle, description, addedDate, addedTime } =
-    useLocalSearchParams<{
-      id: string;
-      shortTitle: string;
-      description: string;
-      addedDate: string;
-      addedTime: string;
-    }>();
+  const { id, shortTitle, description, addedDate, addedTime, isEditing } = useLocalSearchParams<{
+    id?: string;
+    shortTitle?: string;
+    description?: string;
+    addedDate?: string;
+    addedTime?: string;
+    isEditing?: string;
+  }>();
   const router = useRouter();
   const [headerText, setHeaderText] = useState<string>("");
   const [multilineText, setMultilineText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isLoad, setIsLoad] = useState<boolean>(false);
   const [isEdited, setIsEdited] = useState<boolean>(false);
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+  const [showDeleteAlert, setShowDeleteAlert] = useState<boolean>(false);
   const inputRef = useRef<TextInput>(null);
 
   const renderLines = () => {
-    // Define the number of lines you want in the background
+    // Calculate number of lines based on container height
+    const lineHeight = 34; // Height of each line
+    const calculatedLines = Math.max(20, Math.floor(containerHeight / lineHeight));
     const lines = [];
 
-    for (let i = 0; i <= numberOfLines; i++) {
-      lines.push(<View key={i} style={styles.line} />);
+    for (let i = 0; i <= calculatedLines; i++) {
+      lines.push(<View key={i} style={[styles.line, { borderBottomColor: theme.textMuted }]} />);
     }
 
     return lines;
@@ -65,7 +72,12 @@ const EditableMultilineComponent: React.FC = () => {
     description: string;
     addedDate: string;
     addedTime: string;
+    lastModified: number; // Timestamp for sorting
   }
+
+  const [existingNote, setExistingNote] = useState<Note | null>(null);
+
+
 
   const saveNote = async (newNote: Note) => {
     try {
@@ -83,8 +95,10 @@ const EditableMultilineComponent: React.FC = () => {
         notes.push(newNote);
       }
 
+      // Sort notes by lastModified timestamp (newest first)
+      notes.sort((a, b) => b.lastModified - a.lastModified);
+
       await AsyncStorage.setItem("addedNotes", JSON.stringify(notes));
-      // await AsyncStorage.removeItem('addedNotes');
       console.log("Note added successfully!");
     } catch (error) {
       console.error("Error saving note:", error);
@@ -96,8 +110,9 @@ const EditableMultilineComponent: React.FC = () => {
     id: id || Math.random().toString(36).substr(2, 9),
     shortTitle: headerText.trim(),
     description: multilineText.trim(),
-    addedDate: dayjs().format("YYYY-MM-DD"),
-    addedTime: dayjs().format("hh:mm A"),
+    addedDate: existingNote ? existingNote.addedDate : dayjs().format("YYYY-MM-DD"),
+    addedTime: existingNote ? existingNote.addedTime : dayjs().format("hh:mm A"),
+    lastModified: Date.now(), // Current timestamp for sorting
   };
 
   const handleSubmit = async () => {
@@ -143,74 +158,62 @@ const EditableMultilineComponent: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (id) {
-        // If ID exists, pre-fill the form with existing note details
+      if (id && isEditing === "true") {
+        // If editing existing note, use passed parameters
         setHeaderText(shortTitle || "");
         setMultilineText(description || "");
+        setExistingNote({
+          id: id,
+          shortTitle: shortTitle || "",
+          description: description || "",
+          addedDate: addedDate || dayjs().format("YYYY-MM-DD"),
+          addedTime: addedTime || dayjs().format("hh:mm A"),
+          lastModified: Date.now(),
+        });
       } else {
         // Reset fields for new note
         setHeaderText("");
         setMultilineText("");
+        setExistingNote(null);
       }
-    }, [id, shortTitle, description])
+    }, [id, shortTitle, description, addedDate, addedTime, isEditing])
   );
 
   const deleteNote = () => {
-    Alert.alert(
-      "Delete Note",
-      "Are you sure? you want to move the note to the trash can ?",
-      [
-        {
-          text: "No, Exit",
-          // onPress: () => router.push("./(tabs)"),
-          style: "destructive", // Makes the button red on iOS
-        },
-        {
-          text: "Delete",
-          onPress: async () => {
-            try {
-              const currentNotesString = await AsyncStorage.getItem(
-                "addedNotes"
-              );
+    setShowDeleteAlert(true);
+  };
 
-              // console.log('-----remove------',currentNotesString);
-              // return false;
-              if (currentNotesString) {
-                const currentNotes: Note[] = JSON.parse(currentNotesString);
-                const updatedNotes = currentNotes.filter(
-                  (note) => note.id != id
-                );
+  const handleDeleteConfirm = async () => {
+    try {
+      const currentNotesString = await AsyncStorage.getItem("addedNotes");
 
-                const sortedNotes: Note[] = updatedNotes.sort((a, b) => {
-                  // Combine date and time into a single Date object
-                  const dateA = new Date(
-                    `${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`
-                  );
-                  const dateB = new Date(
-                    `${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`
-                  );
+      if (currentNotesString) {
+        const currentNotes: Note[] = JSON.parse(currentNotesString);
+        const updatedNotes = currentNotes.filter((note) => note.id != id);
 
-                  // Sort in descending order
-                  return dateB.getTime() - dateA.getTime(); // If you want ascending, use dateA.getTime() - dateB.getTime()
-                });
+        const sortedNotes: Note[] = updatedNotes.sort((a, b) => {
+          // Combine date and time into a single Date object
+          const dateA = new Date(
+            `${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`
+          );
+          const dateB = new Date(
+            `${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`
+          );
 
-                // Save updated notes back to AsyncStorage
-                await AsyncStorage.setItem(
-                  "addedNotes",
-                  JSON.stringify(sortedNotes)
-                );
-              }
-            } catch (error) {
-              console.error("Error removing selected notes:", error);
-            }
-            setTimeout(() => {
-              router.push("./(tabs)");
-            }, 1000);
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+          // Sort in descending order
+          return dateB.getTime() - dateA.getTime();
+        });
+
+        // Save updated notes back to AsyncStorage
+        await AsyncStorage.setItem("addedNotes", JSON.stringify(sortedNotes));
+      }
+    } catch (error) {
+      console.error("Error removing selected notes:", error);
+    }
+    setShowDeleteAlert(false);
+    setTimeout(() => {
+      router.push("./(tabs)");
+    }, 1000);
   };
 
   const convertTimeTo24Hour = (time: string): string => {
@@ -280,66 +283,98 @@ const EditableMultilineComponent: React.FC = () => {
 
   return (
     <>
+
       {isLoad ? (
         <FullPageLoader />
       ) : (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
           {/* Header Input */}
-          <View style={styles.containerHeader}>
+          <View style={[styles.containerHeader, { backgroundColor: theme.background }]}>
+            {/* Left Icon */}
             {isEdited ? (
               <TouchableOpacity
-                style={styles.doneIcon}
+                style={styles.headerIcon}
                 disabled={isProcessing}
                 onPress={() => {
                   handleSubmit();
                 }}
+                activeOpacity={0.7}
               >
                 <Ionicons
                   name="checkmark-done-outline"
-                  size={20}
-                  color={Colors.lightSlate}
+                  size={24}
+                  color={theme.success}
                 />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={styles.doneIcon}
+                style={styles.headerIcon}
                 disabled={isProcessing}
                 onPress={() => {
                   router.push("./(tabs)");
                 }}
+                activeOpacity={0.7}
               >
                 <Ionicons
                   name="arrow-back-outline"
-                  size={20}
-                  color={Colors.lightSlate}
+                  size={24}
+                  color={theme.primary}
                 />
               </TouchableOpacity>
             )}
 
+            {/* Center Input */}
             <TextInput
               ref={inputRef}
-              onKeyPress={toggleIsEdit}
-              style={styles.headerInput}
+              style={[
+                styles.headerInput, 
+                { 
+                  color: theme.text, 
+                  backgroundColor: theme.surface, 
+                  borderColor: theme.border 
+                }
+              ]}
               value={headerText}
-              onChangeText={setHeaderText}
-              placeholder="Enter text"
-              placeholderTextColor="#666"
-              // selectionColor={Colors.background}
-              maxLength={30}
+              onChangeText={(text) => {
+                setHeaderText(text);
+                toggleIsEdit();
+              }}
+              placeholder="Note title..."
+              placeholderTextColor={theme.textMuted}
+              maxLength={50}
+              selectionColor={theme.primary}
+              underlineColorAndroid="transparent"
+              autoCorrect={false}
+              autoCapitalize="none"
             />
+
+            {/* Right Icon - Only show delete for existing notes */}
             {id && (
               <TouchableOpacity
-                style={styles.verticleDot}
+                style={styles.headerIcon}
+                disabled={isProcessing}
                 onPress={() => deleteNote()}
+                activeOpacity={0.7}
               >
-                {/* <Entypo name="dots-three-vertical" size={20} color={Colors.lightSlate} /> */}
-                <AntDesign name="delete" size={20} color={Colors.lightSlate} />
+                <Ionicons name="trash" size={24} color="#ef4444" />
               </TouchableOpacity>
             )}
           </View>
 
           {/* Multiline Text Input with Lines in the Background */}
-          <TouchableOpacity style={styles.multilineContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.multilineContainer, 
+              { 
+                backgroundColor: theme.background, 
+                borderColor: theme.border 
+              }
+            ]}
+            onLayout={(event) => {
+              const { height } = event.nativeEvent.layout;
+              setContainerHeight(height);
+            }}
+          >
             <ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.contentContainer}
@@ -348,28 +383,54 @@ const EditableMultilineComponent: React.FC = () => {
               {renderLines()}
               <TextInput
                 ref={inputRef}
-                onKeyPress={toggleIsEdit}
-                style={styles.multilineInput}
+                style={[styles.multilineInput, { color: theme.text }]}
                 value={multilineText}
+                maxLength={10000}
                 onChangeText={(text) => {
                   setMultilineText(text);
+                  toggleIsEdit();
                   !id &&
                     headerText.length <= 5 &&
                     setHeaderText(text.substring(0, 18));
                 }}
                 multiline={true}
                 textAlignVertical="top" // Align text to the top in multiline input
-                placeholder="Enter list items here..."
-                placeholderTextColor="#666"
+                placeholder="Start writing your note..."
+                placeholderTextColor={theme.textMuted}
                 numberOfLines={numberOfLines}
-                // selectionColor={Colors.lightSlate}
-                // editable = {isEdited}
+                selectionColor={theme.primary}
+                underlineColorAndroid="transparent"
+                autoCorrect={false}
+                autoCapitalize="none"
               />
             </ScrollView>
+            {/* Character Counter */}
+            <View style={styles.characterCounter}>
+              <Text style={[
+                styles.counterText,
+                { color: theme.textMuted },
+                multilineText.length >= 9000 && { color: theme.warning },
+                multilineText.length >= 10000 && { color: theme.error }
+              ]}>
+                {multilineText.length.toLocaleString()}/10,000
+              </Text>
+            </View>
           </TouchableOpacity>
           <Toast />
         </SafeAreaView>
       )}
+
+      {/* Custom Delete Alert */}
+      <CustomAlert
+        visible={showDeleteAlert}
+        title="Delete Note"
+        message="Are you sure you want to delete this note? This action cannot be undone."
+        onCancel={() => setShowDeleteAlert(false)}
+        onConfirm={handleDeleteConfirm}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="delete"
+      />
     </>
   );
 };
@@ -378,48 +439,63 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: StatusBar.currentHeight || 0,
-    // padding: 10,
-    backgroundColor: Colors.black,
+
   },
   headerInput: {
-    backgroundColor: Colors.lightSlate, // Yellow color similar to the image
+
     flex: 1,
-    color: Colors.background,
-    fontSize: 18,
-    padding: 8,
+
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    fontWeight: '400',
+    borderWidth: 1,
+
+    marginHorizontal: 8,
   },
   // header styling
   containerHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    height: 50,
-    backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightSlate,
-    margin: 1,
-    paddingHorizontal:8,
+    height: 70,
+
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
   verticleDot: {
-    flex: 0.2,
+    padding: 12,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  headerIcon: {
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   doneIcon: {
-    flex: 0.2,
+    padding: 12,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
+
   textHeader: {
     fontSize: 30,
-    color: Colors.lightSlate,
     fontFamily: "cafenty",
   },
   multilineContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
-    borderRadius: 5,
+
+    borderRadius: 12,
     overflow: "hidden",
-    borderWidth: 0.5,
-    borderColor: Colors.lightSlate,
+    borderWidth: 1,
+
+    marginHorizontal: 16,
+    marginTop: 8,
   },
   scrollContainer: {
     flex: 1,
@@ -428,11 +504,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   line: {
-    height: 32, // Approximate line height for each line
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.lightSlate,
-    width: width - 10, // Full width of the container minus padding
-    alignSelf: "center",
+    height: 34, // Increased to match text line height better
+    borderBottomWidth: 1.2,
+
+    width: "100%", // Full width of the container
+    paddingLeft: 12, // Reduced padding for better space utilization
+    opacity: 0.4, // Make lines more visible like notebook paper
   },
   multilineInput: {
     position: "absolute", // Overlay the text input over the lines
@@ -440,10 +517,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 10,
-    color: Colors.lightSlate,
-    fontSize: 16,
-    lineHeight: 32,
+    paddingHorizontal: 12, // Reduced padding for better space utilization
+    paddingTop: 6, // Fine-tuned to align text baseline with lines
+    paddingBottom: 20,
+
+    fontSize: 15,
+    lineHeight: 34, // Match the line height exactly
+    textAlignVertical: "top",
+    fontWeight: '400',
+  },
+  characterCounter: {
+    position: 'absolute',
+    bottom: 8,
+    right: 12,
+
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  counterText: {
+    fontSize: 12,
+
+    fontWeight: '500',
+  },
+  counterWarning: {
+
+  },
+  counterError: {
+
+    fontWeight: '600',
   },
 });
 

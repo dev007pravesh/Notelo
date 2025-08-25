@@ -1,11 +1,13 @@
 import React from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import Colors from "../constants/colors"; // Adjust the path based on your project structure
+import { useTheme } from "../contexts/ThemeContext";
 
 const FullPageLoader: React.FC = () => {
+  const { theme } = useTheme();
+  
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.lightSlate} />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ActivityIndicator size="large" color={theme.textMuted} />
     </View>
   );
 };
@@ -15,7 +17,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.background,
   },
 });
 

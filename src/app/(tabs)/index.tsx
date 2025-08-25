@@ -1,24 +1,22 @@
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Text,
   View,
+  Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   FlatList,
-  StatusBar,
-  Pressable,
-  BackHandler,
 } from "react-native";
-import { useState, useCallback, useEffect } from "react";
-import { Link } from "expo-router";
-import CustomHeader from "../../components/header";
-import Colors from "../../constants/colors";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { Link, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import dayjs from "dayjs";
+import { nanoid } from "nanoid";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import CustomHeader from "../../components/header";
+import { useTheme } from "../../contexts/ThemeContext";
 import FullPageLoader from "../../components/loader";
+import { useFocusEffect } from "@react-navigation/native";
 
 interface Note {
   id: string;
@@ -26,339 +24,461 @@ interface Note {
   description: string;
   addedDate: string;
   addedTime: string;
+  lastModified?: number; // Optional for backward compatibility
 }
 
-const Index: React.FC = () => {
-  const [addedNotes, setAddedNotes] = useState<Note[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<string[]>([]);
-  const [isItemSelected, setIsItemSelected] = useState<boolean>(false);
-  const [isLoad, setIsLoad] = useState<boolean>(false);
-  const [listView, setlistView] = useState<boolean>(true);
-
-  const fetchAddedNotes = async () => {
+export default function HomeScreen() {
+  const { theme, themeMode } = useTheme();
+  const router = useRouter();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [listView, setListView] = useState(true);
+  
+  // Load view preference from storage
+  const loadViewPreference = useCallback(async () => {
     try {
-      setIsLoad(true);
-      const notesString = await AsyncStorage.getItem("addedNotes");
-      // console.log("notesString=========>", notesString);
-      if (notesString) {
-        const notes: Note[] = JSON.parse(notesString);
-        const sortedNotes: Note[] = notes.sort((a, b) => {
-          // Combine date and time into a single Date object
-          const dateA = new Date(
-            `${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`
-          );
-          const dateB = new Date(
-            `${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`
-          );
-
-          // Sort in descending order
-          return dateB.getTime() - dateA.getTime(); // If you want ascending, use dateA.getTime() - dateB.getTime()
-        });
-        const listViewValue = await AsyncStorage.getItem("listView");
-        setlistView(listViewValue?(JSON.parse(listViewValue)): false)
-        setAddedNotes(sortedNotes);
-        setIsLoad(false);
-      } else {
-        setAddedNotes([]); // Set to empty if no notes found
-        setIsLoad(false);
+      const storedView = await AsyncStorage.getItem("notelo_view_preference");
+      if (storedView !== null) {
+        setListView(storedView === "list");
       }
     } catch (error) {
-      setIsLoad(false);
-      console.error("Error fetching notes from AsyncStorage:", error);
+      console.error("Error loading view preference:", error);
     }
-  };
-  // Function to convert 12-hour format to 24-hour format
-  const convertTimeTo24Hour = (time: string): string => {
-    const [timePart, modifier] = time.split(" ");
-    let [hours, minutes] = timePart.split(":").map(Number);
-
-    if (modifier === "PM" && hours < 12) {
-      hours += 12; // Convert PM hours to 24-hour format
-    }
-    if (modifier === "AM" && hours === 12) {
-      hours = 0; // Convert 12 AM to 0 hours
-    }
-
-    return `${hours.toString().padStart(2, "0")}:${minutes
-      .toString()
-      .padStart(2, "0")}:00`; // Return time in HH:MM:SS format
-  };
-
-  const removeSelectedNotes = async () => {
-    try {
-      const currentNotesString = await AsyncStorage.getItem("addedNotes");
-      if (currentNotesString) {
-        const currentNotes: Note[] = JSON.parse(currentNotesString);
-        const updatedNotes = currentNotes.filter(
-          (note) => !selectedIndex.includes(note.id)
-        );
-
-        const sortedNotes: Note[] = updatedNotes.sort((a, b) => {
-          // Combine date and time into a single Date object
-          const dateA = new Date(
-            `${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`
-          );
-          const dateB = new Date(
-            `${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`
-          );
-
-          // Sort in descending order
-          return dateB.getTime() - dateA.getTime(); // If you want ascending, use dateA.getTime() - dateB.getTime()
-        });
-
-        // Save updated notes back to AsyncStorage
-        await AsyncStorage.setItem("addedNotes", JSON.stringify(sortedNotes));
-
-        // Update the state with the new notes
-        setAddedNotes(sortedNotes);
-        setIsItemSelected(false);
-      }
-    } catch (error) {
-      console.error("Error removing selected notes:", error);
-    }
-  };
-  // Fetch notes when the screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      fetchAddedNotes();
-    }, [])
-  );
-  const handleLongPress = (id: string) => {
-    if (selectedIndex.includes(id)) {
-      // If item is already selected, deselect it
-      setSelectedIndex((prev) => prev.filter((itemId) => itemId !== id));
-    } else {
-      // If item is not selected, select it
-      setSelectedIndex((prev) => [...prev, id]);
-    }
-
-    // Set isItemSelected to true when any item is selected
-    // console.log('selectedIndex.length',selectedIndex)
-    setIsItemSelected(true);
-  };
-
-  const handlePress = (id: string) => {
-    console.log("isItemSelected====>", isItemSelected);
-    if (isItemSelected) {
-      // If any item is selected, toggle the selected item
-      setSelectedIndex((prev) =>
-        prev.includes(id)
-          ? prev.filter((itemId) => itemId !== id)
-          : [...prev, id]
-      );
-    }
-  };
-
-  useEffect(() => {
-    const isSlectedStatus = selectedIndex.length == 0 ? false : true;
-
-    setIsItemSelected(isSlectedStatus);
-  }, [selectedIndex]);
-
-  useEffect(() => {
-    const backAction = () => {
-      // Exit the app when back button is pressed
-      BackHandler.exitApp();
-
-      // Return true to indicate that the back press is handled
-      return true;
-    };
-
-    // Add the back press event listener
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );
-
-    // Clean up the event listener on unmount
-    return () => backHandler.remove();
   }, []);
 
-  const renderNote = ({ item }: { item: Note }) => {
-    const isSelected = selectedIndex.includes(item.id);
-    const uri = !isItemSelected ? "./../addNote" : "";
+  // Save view preference to storage
+  const saveViewPreference = useCallback(async (isListView: boolean) => {
+    try {
+      await AsyncStorage.setItem("notelo_view_preference", isListView ? "list" : "grid");
+    } catch (error) {
+      console.error("Error saving view preference:", error);
+    }
+  }, []);
+  const [loading, setLoading] = useState(true);
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
 
-    return (
-      <Link
-        href={{
-          pathname: uri,
-          params: {
-            id: item.id,
-            shortTitle: item.shortTitle,
-            description: item.description,
-            addedDate: item.addedDate,
-            addedTime: item.addedTime,
-          },
-        }}
-        replace
-        asChild
-      >
-        <TouchableOpacity
-          style={addedNotes?.length % 2 == 0 && listView ? {width:"50%"}: {flex:1}}
-          onLongPress={() => handleLongPress(item.id)}
-          onPress={() => handlePress(item.id)}
-        >
-          <View
-            style={[
-              styles.noteContainer,
-              isSelected && { backgroundColor: "#73a1b1" },
-            ]}
-          >
-            <Text style={styles.title} numberOfLines={4}>
-              {item.shortTitle}
-            </Text>
-            <Text style={styles.description} numberOfLines={4}>
-              {item.description}
-            </Text>
-            <Text style={styles.date}>
-              {item.addedDate} - {item.addedTime}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </Link>
+  // Load notes from storage
+  const loadNotes = useCallback(async () => {
+    try {
+      const storedNotes = await AsyncStorage.getItem("addedNotes");
+      if (storedNotes) {
+        const notes = JSON.parse(storedNotes);
+        // Sort notes by lastModified timestamp (newest first)
+        // For backward compatibility, notes without lastModified will be treated as oldest
+        notes.sort((a: Note, b: Note) => {
+          const aTime = a.lastModified || 0;
+          const bTime = b.lastModified || 0;
+          return bTime - aTime;
+        });
+        setNotes(notes);
+      }
+    } catch (error) {
+      console.error("Error loading notes:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Save notes to storage
+  const saveNotes = useCallback(async (newNotes: Note[]) => {
+    try {
+      await AsyncStorage.setItem("addedNotes", JSON.stringify(newNotes));
+    } catch (error) {
+      console.error("Error saving notes:", error);
+    }
+  }, []);
+
+  // Toggle view between list and grid
+  const toggleView = () => {
+    const newListView = !listView;
+    setListView(newListView);
+    saveViewPreference(newListView);
+  };
+
+  // Handle note selection
+  const toggleNoteSelection = (noteId: string) => {
+    setSelectedNotes(prev => 
+      prev.includes(noteId) 
+        ? prev.filter(id => id !== noteId)
+        : [...prev, noteId]
     );
   };
 
-  const toggleListView = async ()=>{
-    setlistView(!listView);
-    await AsyncStorage.setItem("listView", JSON.stringify(!listView));
+  // Delete selected notes
+  const deleteSelectedNotes = () => {
+    const updatedNotes = notes.filter(note => !selectedNotes.includes(note.id));
+    setNotes(updatedNotes);
+    saveNotes(updatedNotes);
+    setSelectedNotes([]);
+  };
+
+  useEffect(() => {
+    loadNotes();
+    loadViewPreference();
+  }, [loadNotes, loadViewPreference]);
+
+  // Reload notes when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadNotes();
+      loadViewPreference();
+    }, [loadNotes, loadViewPreference])
+  );
+
+  if (loading) {
+    return <FullPageLoader />;
   }
+
+  const renderNoteItem = ({ item }: { item: Note }) => {
+    const isSelected = selectedNotes.includes(item.id);
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.noteContainer,
+          {
+            backgroundColor: isSelected ? theme.primaryLight : theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+        onPress={() => {
+          if (selectedNotes.length > 0) {
+            // If notes are selected, toggle selection
+            toggleNoteSelection(item.id);
+          } else {
+            // If no notes are selected, navigate to edit with all note details
+            router.push({
+              pathname: "/addNote",
+              params: {
+                id: item.id,
+                shortTitle: item.shortTitle,
+                description: item.description,
+                addedDate: item.addedDate,
+                addedTime: item.addedTime,
+                isEditing: "true"
+              }
+            });
+          }
+        }}
+        onLongPress={() => toggleNoteSelection(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.noteContent}>
+                  <Text
+          style={[
+            styles.noteTitle,
+            {
+              color: isSelected ? theme.white : theme.text,
+            },
+          ]}
+          numberOfLines={2}
+        >
+          {item.shortTitle}
+        </Text>
+        <Text
+          style={[
+            styles.noteDescription,
+            {
+              color: isSelected ? theme.white : theme.textSecondary,
+            },
+          ]}
+          numberOfLines={3}
+        >
+          {item.description}
+        </Text>
+        <View style={styles.noteMeta}>
+          <Text
+            style={[
+              styles.noteDate,
+              {
+                color: isSelected ? theme.white : theme.textMuted,
+              },
+            ]}
+          >
+            {item.addedDate}
+          </Text>
+          <Text
+            style={[
+              styles.noteTime,
+              {
+                color: isSelected ? theme.white : theme.textMuted,
+              },
+            ]}
+          >
+            {item.addedTime}
+          </Text>
+        </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
   
+  const renderGridItem = ({ item }: { item: Note }) => {
+    const isSelected = selectedNotes.includes(item.id);
+    console.log('Grid item data:', item);
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.gridItem,
+          {
+            backgroundColor: isSelected ? theme.primaryLight : theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+        onPress={() => {
+          if (selectedNotes.length > 0) {
+            // If notes are selected, toggle selection
+            toggleNoteSelection(item.id);
+          } else {
+            // If no notes are selected, navigate to edit with all note details
+            router.push({
+              pathname: "/addNote",
+              params: {
+                id: item.id,
+                shortTitle: item.shortTitle,
+                description: item.description,
+                addedDate: item.addedDate,
+                addedTime: item.addedTime,
+                isEditing: "true"
+              }
+            });
+          }
+        }}
+        onLongPress={() => toggleNoteSelection(item.id)}
+        activeOpacity={0.7}
+      >
+        <Text
+          style={[
+            styles.gridTitle,
+            {
+              color: isSelected ? theme.white : theme.text,
+            },
+          ]}
+          numberOfLines={2}
+        >
+          {item.shortTitle || "Untitled Note"}
+        </Text>
+        <Text
+    style={[
+      styles.gridDescription,
+      {
+        color: isSelected ? theme.white : theme.textSecondary,
+      },
+    ]}
+    numberOfLines={2}
+  >
+    {item.description}
+  </Text>
+        <View style={styles.gridSpacer} />
+        <View style={styles.gridMeta}>
+          <Text
+            style={[
+              styles.gridDate,
+              {
+                color: isSelected ? theme.white : theme.textMuted,
+              },
+            ]}
+          >
+            {item.addedDate || "No Date"}
+          </Text>
+          <Text
+            style={[
+              styles.gridTime,
+              {
+                color: isSelected ? theme.white : theme.textMuted,
+              },
+            ]}
+          >
+            {item.addedTime || "No Time"}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <>
-      {isLoad ? (
-        <FullPageLoader />
-      ) : (
-        <SafeAreaView style={styles.safeArea}>
-          {isItemSelected ? (
-            <View style={styles.headerContainer}>
-              <TouchableOpacity onPress={() => removeSelectedNotes()}>
-                <AntDesign name="delete" size={20} color={Colors.lightSlate} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <CustomHeader title="Home" showBackButton={false} toggleView= {toggleListView} notes ={addedNotes}/>
-          )}
+      <StatusBar style={themeMode === "dark" ? "light" : "dark"} backgroundColor={theme.background} />
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+        <CustomHeader
+          title="NoteLo"
+          notes={notes}
+          toggleView={toggleView}
+          listView={listView}
+          selectedNotes={selectedNotes}
+          onDeleteSelected={deleteSelectedNotes}
+        />
 
-          {addedNotes.length > 0 ? (
-            <>
-              <FlatList
-                data={addedNotes}
-                renderItem={renderNote}
-                keyExtractor={(item) => item.id.toString()}
-                numColumns={listView ? 1 : 2}
-                // Add a key prop to force a fresh render when changing the view
-                key={listView ? 'list' : 'grid'} 
-                columnWrapperStyle={listView ? undefined : styles.columnWrapper}
-                contentContainerStyle={styles.listContainer}
-              />
-              <Link href="./../addNote" replace asChild>
-                <TouchableOpacity style={styles.floatingButton}>
-                  <FontAwesome
-                    name="plus"
-                    size={24}
-                    color={Colors.lightSlate}
-                  />
-                </TouchableOpacity>
-              </Link>
-            </>
-          ) : (
-            <View style={styles.container}>
-              <Link href="./../addNote" replace asChild>
-                <TouchableOpacity style={styles.buttonContainer}>
-                  <FontAwesome
-                    name="sticky-note"
-                    size={100}
-                    color={Colors.lightSlate}
-                  />
-                  <Text style={styles.buttonTxt}>Add note</Text>
-                </TouchableOpacity>
-              </Link>
+        {notes.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="document-text-outline" size={48} color={theme.textMuted} />
             </View>
-          )}
-        </SafeAreaView>
-      )}
+            <Text style={[styles.emptyStateTitle, { color: theme.text }]}>
+              No Notes Yet
+            </Text>
+            <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>
+              Create your first note to get started
+            </Text>
+            <TouchableOpacity
+              style={[styles.addNoteButton, { backgroundColor: theme.primary }]}
+              onPress={() => router.push("/addNote")}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.addNoteButtonText, { color: theme.white }]}>
+                Create Your First Note
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+
+
+            <FlatList
+              data={notes}
+              renderItem={listView ? renderNoteItem : renderGridItem}
+              keyExtractor={(item) => item.id}
+              key={listView ? "list" : "grid"}
+              numColumns={listView ? 1 : 2}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+            />
+
+            <TouchableOpacity
+              style={[styles.floatingButton, { backgroundColor: theme.primary }]}
+              onPress={() => router.push("/addNote")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={24} color={theme.white} />
+            </TouchableOpacity>
+          </>
+        )}
+      </SafeAreaView>
     </>
   );
-};
-export default Index;
+}
+
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: StatusBar.currentHeight || 0,
   },
   listContainer: {
-    padding: 10,
-  },
-  columnWrapper: {
-    justifyContent: "space-between",
+    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
   },
   noteContainer: {
-    backgroundColor: Colors.lightSlate,
-    borderRadius: 8,
-    padding: 15,
-    // marginVertical: 10,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  noteContent: {
     flex: 1,
-    margin: 5,
   },
-  title: {
+  noteTitle: {
     fontSize: 16,
-    fontFamily: "requiner",
-    color: Colors.background,
-    marginBottom: 5,
+    fontWeight: "600",
+    marginBottom: 10,
   },
-  description: {
+  noteDescription: {
     fontSize: 14,
-    // fontFamily:'premint',
-    color: Colors.background,
-    marginBottom: 5,
+    lineHeight: 20,
+    marginBottom: 16,
   },
-  date: {
+  noteMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  noteDate: {
     fontSize: 12,
-    color: Colors.background,
+  },
+  noteTime: {
+    fontSize: 12,
+  },
+  gridItem: {
+    flex: 1,
+    margin: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    height: 140,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  gridSpacer: {
+    flex: 1,
+  },
+  gridTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 20,
+    textAlign: "left",
+    marginBottom: 8,
+  },
+  gridDescription: {
+    fontSize: 14,
+    marginTop: 0,
+    marginBottom: 12,
+    lineHeight: 20,
+    textAlign: "left",
+  },
+  gridMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 0,
+  },
+  gridDate: {
+    fontSize: 12,
+    marginTop: 0,
+    textAlign: "left",
+  },
+  gridTime: {
+    fontSize: 12,
+    marginTop: 0,
+    textAlign: "right",
   },
   floatingButton: {
     position: "absolute",
-    // alignSelf:'center',
     bottom: 30,
-    right: 40,
-    backgroundColor: Colors.background, // Color of the button
-    borderRadius: 30, // Makes it circular
-    borderWidth: 1,
-    borderColor: Colors.lightSlate,
-    width: 40,
-    height: 40,
+    right: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
   },
-  container: {
+  emptyStateContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
     justifyContent: "center",
-  },
-  buttonContainer: {
     alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: 40,
   },
-  buttonTxt: {
-    fontSize: 20,
-    color: Colors.lightSlate,
-    fontFamily: "requiner",
+  iconContainer: {
+    marginBottom: 24,
   },
-  selectedNote: {
-    backgroundColor: "#ccc", // The background color when the item is selected
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center",
   },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    height: 50,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightSlate,
+  emptyStateSubtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 32,
+    lineHeight: 24,
   },
+  addNoteButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  addNoteButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
 });

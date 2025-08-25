@@ -6,10 +6,11 @@ import {
   TouchableOpacity,
   Image,
   Pressable,
+  StatusBar,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons"; // Make sure you have @expo/vector-icons installed
-import Colors from "../../constants/colors";
+import { useTheme } from "../../contexts/ThemeContext";
 import Entypo from "@expo/vector-icons/Entypo";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
@@ -26,6 +27,9 @@ type CustomHeaderProps = {
   showBackButton?: boolean; // Make showBackButton optional,
   notes:Note[];
   toggleView?: () => void;
+  listView: boolean; // Add listView as a required prop
+  selectedNotes: string[];
+  onDeleteSelected: () => void;
 };
 
 const CustomHeader = ({
@@ -33,12 +37,14 @@ const CustomHeader = ({
   showBackButton,
   notes,
   toggleView,
+  listView,
+  selectedNotes,
+  onDeleteSelected,
 }: CustomHeaderProps) => {
   const navigation = useNavigation();
-  const [listView, setlistView] = useState(true);
+  const { theme, themeMode, toggleTheme } = useTheme();
 
   const toggleListView = () => {
-    setlistView(!listView);
     if (toggleView) {
       toggleView(); // Call toggleView only if it is defined
     }
@@ -47,38 +53,87 @@ const CustomHeader = ({
   console.log('noteLen========',notes)
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      backgroundColor: theme.background,
+      borderBottomColor: theme.border 
+    }]}>
       {showBackButton && (
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={styles.backButton}
+          style={[styles.backButton, { 
+            backgroundColor: theme.surface,
+            borderColor: theme.border 
+          }]}
+          activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="black" />
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
       )}
-      <View style={styles.backButton}>
-        <Text style={styles.text}>NoteLo</Text>
+      
+      <View style={[styles.titleContainer, { 
+        backgroundColor: theme.surface,
+        borderColor: theme.border 
+      }]}>
+        <Text style={[styles.text, { color: theme.primary }]}>NoteLo</Text>
       </View>
-      {
-        notes.length > 0  &&
-
-        <TouchableOpacity onPress={toggleListView}>
-        {listView ? (
-          <MaterialCommunityIcons
-            name="view-grid"
-            size={30}
-            color={Colors.lightSlate}
+      
+      <View style={styles.rightActions}>
+        {/* Theme Toggle Button */}
+        <TouchableOpacity 
+          onPress={toggleTheme}
+          style={[styles.themeButton, { 
+            backgroundColor: theme.surface,
+            borderColor: theme.border 
+          }]}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={themeMode === 'light' ? 'moon' : 'sunny'}
+            size={22}
+            color={theme.primary}
           />
-        ) : (
-          <MaterialCommunityIcons
-            name="view-sequential"
-            size={30}
-            color={Colors.lightSlate}
-          />
+        </TouchableOpacity>
+        
+        {/* View Toggle Button - only show if more than 1 note */}
+        {notes.length > 1 && (
+          <TouchableOpacity 
+            onPress={toggleListView}
+            style={[styles.toggleButton, { 
+              backgroundColor: theme.surface,
+              borderColor: theme.border 
+            }]}
+            activeOpacity={0.7}
+          >
+            {listView ? (
+              <MaterialCommunityIcons
+                name="view-grid"
+                size={24}
+                color={theme.text}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="view-sequential"
+                size={24}
+                color={theme.text}
+              />
+            )}
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
-      }
-     
+        
+        {/* Delete Button - only show when notes are selected */}
+        {selectedNotes.length > 0 && (
+          <TouchableOpacity 
+            onPress={onDeleteSelected}
+            style={[styles.deleteButton, { 
+              backgroundColor: theme.error,
+              borderColor: theme.border 
+            }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={20} color={theme.white} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -88,23 +143,55 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    height: 50,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 10,
+    minHeight: 80,
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.lightSlate,
   },
-  backButton: {},
+  backButton: {
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  titleContainer: {
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
   title: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: Colors.lightSlate,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
   text: {
-    fontSize: 30,
-    color: Colors.lightSlate,
-    fontFamily: "cafenty",
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  themeButton: {
+    padding: 10,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  toggleButton: {
+    padding: 10,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  deleteButton: {
+    padding: 10,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+
 });
 
 export default CustomHeader;
