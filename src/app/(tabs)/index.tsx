@@ -394,7 +394,7 @@ export default function HomeScreen() {
 
   return (
     <>
-      <StatusBar style={themeMode === "dark" ? "light" : "dark"} backgroundColor={theme.background} />
+      <StatusBar style={themeMode === "dark" ? "light" : "dark"} />
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
         <CustomHeader
           title="NoteLo"
