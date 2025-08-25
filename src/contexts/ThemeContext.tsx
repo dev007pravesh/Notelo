@@ -42,17 +42,25 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     try {
       const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
       console.log('Loaded theme preference:', savedTheme);
+      
+      // If saved theme is 'system', convert it to 'light' and save
+      if (savedTheme === 'system') {
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, 'light');
+        setThemeMode('light');
+        return;
+      }
+      
       if (savedTheme === 'light' || savedTheme === 'dark') {
         setThemeMode(savedTheme);
       } else {
-        // If no saved theme, use default and save it
-        setThemeMode('dark');
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, 'dark');
+        // If no saved theme, use light theme as default
+        setThemeMode('light');
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, 'light');
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);
-      // Fallback to default theme
-      setThemeMode('dark');
+      // Fallback to light theme
+      setThemeMode('light');
     }
   };
 

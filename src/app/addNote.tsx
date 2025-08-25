@@ -10,7 +10,6 @@ import {
   SafeAreaView,
   StatusBar,
   BackHandler,
-  Alert,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -51,6 +50,7 @@ const EditableMultilineComponent: React.FC = () => {
   const [isEdited, setIsEdited] = useState<boolean>(false);
   const [containerHeight, setContainerHeight] = useState<number>(0);
   const [showDeleteAlert, setShowDeleteAlert] = useState<boolean>(false);
+  const [showUnsavedAlert, setShowUnsavedAlert] = useState<boolean>(false);
   const inputRef = useRef<TextInput>(null);
 
   const renderLines = () => {
@@ -216,6 +216,20 @@ const EditableMultilineComponent: React.FC = () => {
     }, 1000);
   };
 
+  const handleUnsavedAlertExit = () => {
+    setShowUnsavedAlert(false);
+    router.push("./(tabs)");
+  };
+
+  const handleUnsavedAlertSave = async () => {
+    setShowUnsavedAlert(false);
+    setIsLoad(true);
+    await saveNote(newNote);
+    setTimeout(() => {
+      router.push("./(tabs)");
+    }, 1000);
+  };
+
   const convertTimeTo24Hour = (time: string): string => {
     const [timePart, modifier] = time.split(" ");
     let [hours, minutes] = timePart.split(":").map(Number);
@@ -239,34 +253,14 @@ const EditableMultilineComponent: React.FC = () => {
         newNote.shortTitle.trim().length > 0 &&
         isEdited
       ) {
-        Alert.alert(
-          "Unsaved Note",
-          "You have unsaved changes. Do you want to save the note before exiting?",
-          [
-            {
-              text: "No, Exit",
-              onPress: () => router.push("./(tabs)"),
-              style: "destructive", // Makes the button red on iOS
-            },
-            {
-              text: "Save",
-              onPress: async () => {
-                setIsLoad(true);
-                await saveNote(newNote);
-                setTimeout(() => {
-                  router.push("./(tabs)");
-                }, 1000);
-              },
-            },
-          ],
-          { cancelable: true }
-        );
+        setShowUnsavedAlert(true);
+        return true; // Indicate that the back press is handled
       } else {
         // If there's nothing to save, simply exit the app
         router.push("./(tabs)");
         // BackHandler.exitApp();
+        return true; // Indicate that the back press is handled
       }
-      return true; // Indicate that the back press is handled
     };
 
     // Add the back press event listener
@@ -430,6 +424,18 @@ const EditableMultilineComponent: React.FC = () => {
         confirmText="Delete"
         cancelText="Cancel"
         type="delete"
+      />
+
+      {/* Custom Unsaved Notes Alert */}
+      <CustomAlert
+        visible={showUnsavedAlert}
+        title="Unsaved Note"
+        message="You have unsaved changes. Do you want to save the note before exiting?"
+        onCancel={handleUnsavedAlertExit}
+        onConfirm={handleUnsavedAlertSave}
+        confirmText="Save"
+        cancelText="No, Exit"
+        type="warning"
       />
     </>
   );

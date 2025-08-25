@@ -33,6 +33,9 @@ export default function HomeScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [listView, setListView] = useState(true);
   
+  // Sort options
+  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'title' | 'date'>('newest');
+  
   // Load view preference from storage
   const loadViewPreference = useCallback(async () => {
     try {
@@ -53,6 +56,81 @@ export default function HomeScreen() {
       console.error("Error saving view preference:", error);
     }
   }, []);
+
+  // Load sort preference from storage
+  const loadSortPreference = useCallback(async () => {
+    try {
+      const storedSort = await AsyncStorage.getItem("notelo_sort_preference");
+      if (storedSort !== null) {
+        setSortOption(storedSort as 'newest' | 'oldest' | 'title' | 'date');
+      }
+    } catch (error) {
+      console.error("Error loading sort preference:", error);
+    }
+  }, []);
+
+  // Save sort preference to storage
+  const saveSortPreference = useCallback(async (option: 'newest' | 'oldest' | 'title' | 'date') => {
+    try {
+      await AsyncStorage.setItem("notelo_sort_preference", option);
+    } catch (error) {
+      console.error("Error saving sort preference:", error);
+    }
+  }, []);
+
+  // Sort notes based on sort option with error handling
+  const sortNotes = useCallback((notesToSort: Note[], option: 'newest' | 'oldest' | 'title' | 'date') => {
+    try {
+      if (!Array.isArray(notesToSort) || notesToSort.length === 0) {
+        return [];
+      }
+
+      const sortedNotes = [...notesToSort];
+      
+      switch (option) {
+        case 'newest':
+          return sortedNotes.sort((a, b) => {
+            const aTime = a.lastModified || new Date(`${a.addedDate}T${a.addedTime}`).getTime() || 0;
+            const bTime = b.lastModified || new Date(`${b.addedDate}T${b.addedTime}`).getTime() || 0;
+            return bTime - aTime;
+          });
+        case 'oldest':
+          return sortedNotes.sort((a, b) => {
+            const aTime = a.lastModified || new Date(`${a.addedDate}T${a.addedTime}`).getTime() || 0;
+            const bTime = b.lastModified || new Date(`${b.addedDate}T${b.addedTime}`).getTime() || 0;
+            return aTime - bTime;
+          });
+        case 'title':
+          return sortedNotes.sort((a, b) => {
+            const titleA = (a.shortTitle || '').trim().toLowerCase();
+            const titleB = (b.shortTitle || '').trim().toLowerCase();
+            return titleA.localeCompare(titleB);
+          });
+        case 'date':
+          return sortedNotes.sort((a, b) => {
+            try {
+              const dateA = new Date(`${a.addedDate}T${a.addedTime}`);
+              const dateB = new Date(`${b.addedDate}T${b.addedTime}`);
+              
+              // Handle invalid dates
+              if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                return 0; // Keep original order for invalid dates
+              }
+              
+              return dateB.getTime() - dateA.getTime();
+            } catch (dateError) {
+              console.warn('Error parsing date for sorting:', dateError);
+              return 0; // Keep original order on date parsing errors
+            }
+          });
+        default:
+          return sortedNotes;
+      }
+    } catch (error) {
+      console.error('Error sorting notes:', error);
+      return notesToSort; // Return original array on error
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
 
@@ -62,21 +140,16 @@ export default function HomeScreen() {
       const storedNotes = await AsyncStorage.getItem("addedNotes");
       if (storedNotes) {
         const notes = JSON.parse(storedNotes);
-        // Sort notes by lastModified timestamp (newest first)
-        // For backward compatibility, notes without lastModified will be treated as oldest
-        notes.sort((a: Note, b: Note) => {
-          const aTime = a.lastModified || 0;
-          const bTime = b.lastModified || 0;
-          return bTime - aTime;
-        });
-        setNotes(notes);
+        // Sort notes based on current sort option
+        const sortedNotes = sortNotes(notes, sortOption);
+        setNotes(sortedNotes);
       }
     } catch (error) {
       console.error("Error loading notes:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortOption]);
 
   // Save notes to storage
   const saveNotes = useCallback(async (newNotes: Note[]) => {
@@ -92,6 +165,25 @@ export default function HomeScreen() {
     const newListView = !listView;
     setListView(newListView);
     saveViewPreference(newListView);
+  };
+
+  // Handle sort option change with error handling
+  const handleSortChange = (option: 'newest' | 'oldest' | 'title' | 'date') => {
+    try {
+      setSortOption(option);
+      saveSortPreference(option);
+      
+      // Re-sort current notes
+      if (notes && notes.length > 0) {
+        const sortedNotes = sortNotes(notes, option);
+        setNotes(sortedNotes);
+      }
+    } catch (error) {
+      console.error('Error changing sort option:', error);
+      // Fallback to default sorting
+      setSortOption('newest');
+      saveSortPreference('newest');
+    }
   };
 
   // Handle note selection
@@ -114,14 +206,16 @@ export default function HomeScreen() {
   useEffect(() => {
     loadNotes();
     loadViewPreference();
-  }, [loadNotes, loadViewPreference]);
+    loadSortPreference();
+  }, [loadNotes, loadViewPreference, loadSortPreference]);
 
   // Reload notes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadNotes();
       loadViewPreference();
-    }, [loadNotes, loadViewPreference])
+      loadSortPreference();
+    }, [loadNotes, loadViewPreference, loadSortPreference])
   );
 
   if (loading) {
@@ -212,7 +306,7 @@ export default function HomeScreen() {
     );
   };
   
-  const renderGridItem = ({ item }: { item: Note }) => {
+  const renderGridItem = ({ item, index }: { item: Note; index: number }) => {
     const isSelected = selectedNotes.includes(item.id);
     console.log('Grid item data:', item);
     
@@ -223,6 +317,8 @@ export default function HomeScreen() {
           {
             backgroundColor: isSelected ? theme.primaryLight : theme.surface,
             borderColor: theme.border,
+            marginTop: index < 2 ? 0 : 4, // Ensure first row has no top margin
+            marginRight: index % 2 === 1 ? 0 : 8, // Remove right margin for items in right column
           },
         ]}
         onPress={() => {
@@ -307,6 +403,8 @@ export default function HomeScreen() {
           listView={listView}
           selectedNotes={selectedNotes}
           onDeleteSelected={deleteSelectedNotes}
+          sortOption={sortOption}
+          onSortChange={handleSortChange}
         />
 
         {notes.length === 0 ? (
@@ -367,8 +465,13 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 100,
   },
+  gridContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
   noteContainer: {
-    marginBottom: 16,
+    marginBottom: 8,
     borderRadius: 12,
     borderWidth: 1,
     padding: 16,
@@ -399,7 +502,9 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     flex: 1,
-    margin: 4,
+    marginHorizontal: 0,
+    marginVertical: 4,
+    marginRight: 8,
     borderRadius: 12,
     borderWidth: 1,
     padding: 16,
