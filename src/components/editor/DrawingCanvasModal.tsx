@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,16 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 
+export interface DrawingPath {
+  d: string;
+  color: string;
+  strokeWidth: number;
+}
+
 interface DrawingCanvasModalProps {
   visible: boolean;
   isDark: boolean;
+  initialPaths?: DrawingPath[];
   onClose: () => void;
   onSaveDrawing: (svgString: string) => void;
 }
@@ -27,14 +34,23 @@ const { width, height } = Dimensions.get('window');
 export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
   visible,
   isDark,
+  initialPaths,
   onClose,
   onSaveDrawing,
 }) => {
-  const [paths, setPaths] = useState<Array<{ d: string; color: string; strokeWidth: number }>>([]);
+  const [paths, setPaths] = useState<DrawingPath[]>(initialPaths || []);
   const [currentPath, setCurrentPath] = useState('');
   const [currentColor, setCurrentColor] = useState('#F59E0B');
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setPaths(initialPaths || []);
+      setCurrentPath('');
+      currentPathRef.current = '';
+    }
+  }, [visible, initialPaths]);
 
   // Synchronized refs to avoid PanResponder stale closure
   const currentPathRef = useRef<string>('');
@@ -136,6 +152,7 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
     const bgColor = isDark ? '#1F1F1F' : '#FFFFFF';
 
     const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="${canvasWidth}" height="${canvasHeight}">
+  <!-- NOTELO_DRAWING_DATA: ${JSON.stringify(allPaths)} -->
   <rect width="100%" height="100%" fill="${bgColor}"/>
   ${allPaths
     .map(

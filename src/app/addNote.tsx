@@ -30,7 +30,7 @@ import { ChecklistEditor } from '../components/editor/ChecklistEditor';
 import { ImageLightboxModal } from '../components/editor/ImageLightboxModal';
 import { AudioRecorderModal } from '../components/editor/AudioRecorderModal';
 import { AudioPlayerWidget } from '../components/editor/AudioPlayerWidget';
-import { DrawingCanvasModal } from '../components/editor/DrawingCanvasModal';
+import { DrawingCanvasModal, DrawingPath } from '../components/editor/DrawingCanvasModal';
 import { ReminderPickerModal } from '../components/editor/ReminderPickerModal';
 import { LabelPickerModal } from '../components/editor/LabelPickerModal';
 import { ReminderNotificationService } from '../services/reminderNotificationService';
@@ -70,11 +70,40 @@ export default function NoteEditorScreen() {
   const [labelModalVisible, setLabelModalVisible] = useState(false);
   const [audioModalVisible, setAudioModalVisible] = useState(false);
   const [drawingModalVisible, setDrawingModalVisible] = useState(false);
+  const [editingDrawingUri, setEditingDrawingUri] = useState<string | null>(null);
+  const [editingDrawingPaths, setEditingDrawingPaths] = useState<DrawingPath[]>([]);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
   // Auto-save debounce timer ref
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+
+  const handleStartEditDrawing = async (uri: string) => {
+    try {
+      const fileContent = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      const match = fileContent.match(/<!-- NOTELO_DRAWING_DATA: ([\s\S]*?) -->/);
+      let initialPaths: DrawingPath[] = [];
+      if (match && match[1]) {
+        try {
+          initialPaths = JSON.parse(match[1]);
+        } catch (parseErr) {
+          console.warn('Failed to parse drawing data JSON:', parseErr);
+        }
+      }
+      setEditingDrawingUri(uri);
+      setEditingDrawingPaths(initialPaths);
+      setLightboxUri(null);
+      setDrawingModalVisible(true);
+    } catch (e) {
+      console.error('Error opening drawing for edit:', e);
+      setEditingDrawingUri(uri);
+      setEditingDrawingPaths([]);
+      setLightboxUri(null);
+      setDrawingModalVisible(true);
+    }
+  };
 
   // Load existing note if noteId exists
   useEffect(() => {
@@ -562,7 +591,12 @@ export default function NoteEditorScreen() {
       <DrawingCanvasModal
         visible={drawingModalVisible}
         isDark={isDark}
-        onClose={() => setDrawingModalVisible(false)}
+        initialPaths={editingDrawingPaths}
+        onClose={() => {
+          setDrawingModalVisible(false);
+          setEditingDrawingUri(null);
+          setEditingDrawingPaths([]);
+        }}
         onSaveDrawing={async (svgData) => {
           try {
             const attachmentsDir = `${FileSystem.documentDirectory}attachments/`;
@@ -570,11 +604,23 @@ export default function NoteEditorScreen() {
             if (!dirInfo.exists) {
               await FileSystem.makeDirectoryAsync(attachmentsDir, { intermediates: true });
             }
-            const drawingUri = `${attachmentsDir}drawing_${Date.now()}.svg`;
-            await FileSystem.writeAsStringAsync(drawingUri, svgData, {
+            const isEditing = !!editingDrawingUri;
+            const targetUri = isEditing
+              ? editingDrawingUri
+              : `${attachmentsDir}drawing_${Date.now()}.svg`;
+
+            await FileSystem.writeAsStringAsync(targetUri, svgData, {
               encoding: FileSystem.EncodingType.UTF8,
             });
-            setImageUris((prev) => [...prev, drawingUri]);
+
+            if (!isEditing) {
+              setImageUris((prev) => [...prev, targetUri]);
+            } else {
+              setImageUris((prev) => [...prev]);
+            }
+
+            setEditingDrawingUri(null);
+            setEditingDrawingPaths([]);
             triggerAutoSave();
           } catch (e) {
             console.error('Error saving drawing:', e);
@@ -591,6 +637,11 @@ export default function NoteEditorScreen() {
             setImageUris((prev) => prev.filter((u) => u !== lightboxUri));
           }
         }}
+        onEditDrawing={
+          lightboxUri && lightboxUri.endsWith('.svg')
+            ? () => handleStartEditDrawing(lightboxUri)
+            : undefined
+        }
       />
     </SafeAreaView>
   );
