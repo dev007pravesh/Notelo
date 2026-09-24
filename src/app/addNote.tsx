@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import dayjs from 'dayjs';
-import { nanoid } from 'nanoid';
+import * as Crypto from 'expo-crypto';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useNotesStore } from '../store/useNotesStore';
 import { NotesRepository } from '../db/repositories/notesRepository';
@@ -46,7 +46,7 @@ export default function NoteEditorScreen() {
   const isDark = theme === 'dark';
 
   // State
-  const [currentId, setCurrentId] = useState<string>(noteId || `note_${Date.now()}_${nanoid(6)}`);
+  const [currentId, setCurrentId] = useState<string>(noteId || `note_${Date.now()}_${Crypto.randomUUID().slice(0, 8)}`);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [noteType, setNoteType] = useState<'text' | 'checklist'>(
