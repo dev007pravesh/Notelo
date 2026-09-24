@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MasonryFlashList } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotesStore } from '../../store/useNotesStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -162,12 +162,12 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          <MasonryFlashList
+          <FlashList
             data={feedItems}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             numColumns={viewMode === 'grid' ? 2 : 1}
-            estimatedItemSize={140}
+            masonry={viewMode === 'grid'}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -11,72 +11,32 @@ interface AudioPlayerWidgetProps {
 }
 
 export const AudioPlayerWidget: React.FC<AudioPlayerWidgetProps> = ({ uri, isDark, onDelete }) => {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [positionMillis, setPositionMillis] = useState(0);
-  const [durationMillis, setDurationMillis] = useState(0);
+  const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
 
-  useEffect(() => {
-    let soundObj: Audio.Sound | null = null;
+  const isPlaying = status.playing;
+  const currentTime = status.currentTime ?? 0;
+  const duration = status.duration ?? 0;
 
-    async function loadAudio() {
-      try {
-        const { sound: s, status } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: false },
-          onPlaybackStatusUpdate
-        );
-        soundObj = s;
-        setSound(s);
-        if (status.isLoaded && status.durationMillis) {
-          setDurationMillis(status.durationMillis);
-        }
-      } catch (e) {
-        console.error('Error loading audio:', e);
-      }
-    }
-
-    loadAudio();
-
-    return () => {
-      if (soundObj) {
-        soundObj.unloadAsync();
-      }
-    };
-  }, [uri]);
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPositionMillis(status.positionMillis || 0);
-      setDurationMillis(status.durationMillis || 0);
-      setIsPlaying(status.isPlaying || false);
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPositionMillis(0);
-      }
-    }
-  };
-
-  const togglePlayPause = async () => {
-    if (!sound) return;
+  const togglePlayPause = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       if (isPlaying) {
-        await sound.pauseAsync();
+        player.pause();
       } else {
-        if (positionMillis >= durationMillis && durationMillis > 0) {
-          await sound.replayAsync();
-        } else {
-          await sound.playAsync();
+        // If playback finished, seek to beginning
+        if (currentTime >= duration && duration > 0) {
+          player.seekTo(0);
         }
+        player.play();
       }
     } catch (e) {
       console.error('Error toggling play/pause:', e);
     }
   };
 
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
+  const formatTime = (sec: number) => {
+    const totalSeconds = Math.floor(sec);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
@@ -103,7 +63,7 @@ export const AudioPlayerWidget: React.FC<AudioPlayerWidgetProps> = ({ uri, isDar
       <View style={styles.timeInfo}>
         <Ionicons name="mic" size={16} color="#6366F1" />
         <Text style={[styles.timeText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-          {formatTime(positionMillis)} / {formatTime(durationMillis || 0)}
+          {formatTime(currentTime)} / {formatTime(duration)}
         </Text>
       </View>
 

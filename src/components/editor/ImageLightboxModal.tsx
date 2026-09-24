@@ -6,13 +6,13 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Dimensions,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { SvgUri } from 'react-native-svg';
+import { SafeSvgImage } from '../common/SafeSvgImage';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 
@@ -134,9 +134,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
           {/* Full Screen Image or Drawing */}
           <View style={styles.imageWrapper}>
-            {isDrawing ? (
+            {isDrawing && imageUri ? (
               <View style={styles.drawingFrame}>
-                <SvgUri uri={imageUri} width="100%" height="100%" />
+                <SafeSvgImage uri={imageUri} width="100%" height="100%" />
               </View>
             ) : (
               <Image

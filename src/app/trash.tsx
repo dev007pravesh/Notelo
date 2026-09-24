@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MasonryFlashList } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import dayjs from 'dayjs';
@@ -177,7 +177,7 @@ export default function TrashScreen() {
             </Text>
           </View>
         ) : (
-          <MasonryFlashList
+          <FlashList
             data={trashNotes}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
@@ -228,7 +228,7 @@ export default function TrashScreen() {
               );
             }}
             numColumns={viewMode === 'grid' ? 2 : 1}
-            estimatedItemSize={140}
+            masonry={viewMode === 'grid'}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl

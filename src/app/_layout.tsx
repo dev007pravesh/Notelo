@@ -4,12 +4,17 @@ import { useEffect } from "react";
 import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
 import * as QuickActions from 'expo-quick-actions';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { DatabaseProvider } from '../db/DatabaseProvider';
 import { SecurityWrapper } from '../components/security/SecurityWrapper';
+
+// Detect if running in Expo Go (notifications are not supported there since SDK 53)
+const isExpoGo =
+  Constants.appOwnership === 'expo' ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -33,16 +38,26 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   // Handle notification response (tap on reminder)
+  // Skip entirely in Expo Go — expo-notifications is not available there since SDK 53
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const noteId = response.notification.request.content.data?.noteId;
-      if (noteId && typeof noteId === 'string') {
-        router.push({ pathname: '/addNote', params: { id: noteId } });
-      }
-    });
+    if (isExpoGo) return;
+
+    let subscription: { remove: () => void } | null = null;
+
+    try {
+      const Notifications = require('expo-notifications');
+      subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+        const noteId = response.notification?.request?.content?.data?.noteId;
+        if (noteId && typeof noteId === 'string') {
+          router.push({ pathname: '/addNote', params: { id: noteId } });
+        }
+      });
+    } catch (e) {
+      console.log('Notifications not available:', e);
+    }
 
     return () => {
-      subscription.remove();
+      subscription?.remove();
     };
   }, []);
 

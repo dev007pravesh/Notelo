@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import dayjs from 'dayjs';
-import { SvgUri } from 'react-native-svg';
+import { SafeSvgImage } from '../components/common/SafeSvgImage';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useNotesStore } from '../store/useNotesStore';
 import { NotesRepository } from '../db/repositories/notesRepository';
@@ -398,7 +398,7 @@ export default function NoteEditorScreen() {
               >
                 {uri.endsWith('.svg') ? (
                   <View style={[styles.imageThumb, { overflow: 'hidden' }]}>
-                    <SvgUri uri={uri} width="100%" height="100%" />
+                    <SafeSvgImage uri={uri} width="100%" height="100%" />
                   </View>
                 ) : (
                   <Image source={{ uri }} style={styles.imageThumb} />

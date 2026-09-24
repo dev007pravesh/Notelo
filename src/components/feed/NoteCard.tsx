@@ -9,7 +9,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
-import { SvgUri } from 'react-native-svg';
+import { SafeSvgImage } from '../common/SafeSvgImage';
 import { NoteWithDetails } from '../../db/repositories/notesRepository';
 import { resolveKeepColor } from '../../constants/keepColors';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -80,7 +80,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
         {coverImage && !note.isLocked && (
           coverImage.localUri.endsWith('.svg') ? (
             <View style={[styles.coverThumbnail, { overflow: 'hidden' }]}>
-              <SvgUri uri={coverImage.localUri} width="100%" height="100%" />
+              <SafeSvgImage uri={coverImage.localUri} width="100%" height="100%" />
             </View>
           ) : (
             <Image

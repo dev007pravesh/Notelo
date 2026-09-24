@@ -6,9 +6,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Platform,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorderState,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -26,7 +31,8 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({
   onClose,
   onRecordingComplete,
 }) => {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
   const [seconds, setSeconds] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -35,7 +41,9 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({
     if (visible) {
       startRecording();
     } else {
-      stopRecording(false);
+      if (isRecording) {
+        stopRecording(false);
+      }
     }
 
     return () => {
@@ -45,22 +53,20 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({
 
   const startRecording = async () => {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (!status.granted) {
         onClose();
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: true,
       });
 
-      const { recording: rec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
 
-      setRecording(rec);
       setIsRecording(true);
       setSeconds(0);
 
@@ -76,16 +82,10 @@ export const AudioRecorderModal: React.FC<AudioRecorderModalProps> = ({
   const stopRecording = async (save: boolean = true) => {
     if (timerRef.current) clearInterval(timerRef.current);
 
-    if (!recording) {
-      onClose();
-      return;
-    }
-
     try {
       setIsRecording(false);
-      await recording.stopAndUnloadAsync();
-      const tempUri = recording.getURI();
-      setRecording(null);
+      await audioRecorder.stop();
+      const tempUri = audioRecorder.uri;
 
       if (save && tempUri) {
         // Move to permanent attachments directory
