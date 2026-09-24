@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 
 export interface DrawingPath {

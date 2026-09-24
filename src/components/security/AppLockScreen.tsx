@@ -197,7 +197,7 @@ export const AppLockScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#0F172A',
     zIndex: 9999,
   },

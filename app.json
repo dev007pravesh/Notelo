@@ -60,7 +60,11 @@
         {
           "microphonePermission": "Allow Notelo to access your microphone for voice memos."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-sharing",
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
