@@ -9,6 +9,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
+import { SvgUri } from 'react-native-svg';
 import { NoteWithDetails } from '../../db/repositories/notesRepository';
 import { resolveKeepColor } from '../../constants/keepColors';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -77,11 +78,17 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
       >
         {/* Cover Image Thumbnail (Signature Keep Feature) */}
         {coverImage && !note.isLocked && (
-          <Image
-            source={{ uri: coverImage.localUri }}
-            style={styles.coverThumbnail}
-            resizeMode="cover"
-          />
+          coverImage.localUri.endsWith('.svg') ? (
+            <View style={[styles.coverThumbnail, { overflow: 'hidden' }]}>
+              <SvgUri uri={coverImage.localUri} width="100%" height="100%" />
+            </View>
+          ) : (
+            <Image
+              source={{ uri: coverImage.localUri }}
+              style={styles.coverThumbnail}
+              resizeMode="cover"
+            />
+          )
         )}
 
         {/* Selection Checkbox Badge */}

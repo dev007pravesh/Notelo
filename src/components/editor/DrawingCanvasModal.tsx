@@ -32,11 +32,46 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
 }) => {
   const [paths, setPaths] = useState<Array<{ d: string; color: string; strokeWidth: number }>>([]);
   const [currentPath, setCurrentPath] = useState('');
-  const [currentColor, setCurrentColor] = useState('#6366F1');
+  const [currentColor, setCurrentColor] = useState('#F59E0B');
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
 
-  const colors = ['#6366F1', '#EF4444', '#10B981', '#F59E0B', '#3B82F6', '#0F172A'];
+  // Synchronized refs to avoid PanResponder stale closure
+  const currentPathRef = useRef<string>('');
+  const isEraserRef = useRef<boolean>(isEraser);
+  const currentColorRef = useRef<string>(currentColor);
+  const strokeWidthRef = useRef<number>(strokeWidth);
+  const isDarkRef = useRef<boolean>(isDark);
+
+  isEraserRef.current = isEraser;
+  currentColorRef.current = currentColor;
+  strokeWidthRef.current = strokeWidth;
+  isDarkRef.current = isDark;
+
+  const colors = [
+    isDark ? '#FFFFFF' : '#202124',
+    '#F59E0B', // Keep Amber
+    '#EF4444', // Red
+    '#10B981', // Emerald
+    '#3B82F6', // Blue
+    '#8B5CF6', // Purple
+    '#EC4899', // Pink
+  ];
+
+  const commitCurrentStroke = () => {
+    const finalD = currentPathRef.current;
+    if (finalD && finalD.length > 0) {
+      const eraserColor = isDarkRef.current ? '#1F1F1F' : '#FFFFFF';
+      const newPath = {
+        d: finalD,
+        color: isEraserRef.current ? eraserColor : currentColorRef.current,
+        strokeWidth: isEraserRef.current ? 24 : strokeWidthRef.current,
+      };
+      setPaths((prev) => [...prev, newPath]);
+      currentPathRef.current = '';
+      setCurrentPath('');
+    }
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -44,24 +79,25 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath(`M${locationX},${locationY}`);
+        const x = Math.round(locationX);
+        const y = Math.round(locationY);
+        const startD = `M${x},${y} L${x},${y}`;
+        currentPathRef.current = startD;
+        setCurrentPath(startD);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath((prev) => `${prev} L${locationX},${locationY}`);
+        const x = Math.round(locationX);
+        const y = Math.round(locationY);
+        const nextD = `${currentPathRef.current} L${x},${y}`;
+        currentPathRef.current = nextD;
+        setCurrentPath(nextD);
       },
       onPanResponderRelease: () => {
-        if (currentPath) {
-          setPaths((prev) => [
-            ...prev,
-            {
-              d: currentPath,
-              color: isEraser ? (isDark ? '#0F172A' : '#FFFFFF') : currentColor,
-              strokeWidth: isEraser ? 16 : strokeWidth,
-            },
-          ]);
-          setCurrentPath('');
-        }
+        commitCurrentStroke();
+      },
+      onPanResponderTerminate: () => {
+        commitCurrentStroke();
       },
     })
   ).current;
@@ -74,13 +110,42 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
   const handleClear = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPaths([]);
+    currentPathRef.current = '';
     setCurrentPath('');
   };
 
   const handleSave = () => {
+    if (paths.length === 0 && !currentPathRef.current) {
+      onClose();
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const serializedSvg = JSON.stringify(paths);
-    onSaveDrawing(serializedSvg);
+
+    const allPaths = [...paths];
+    if (currentPathRef.current) {
+      const eraserColor = isDark ? '#1F1F1F' : '#FFFFFF';
+      allPaths.push({
+        d: currentPathRef.current,
+        color: isEraser ? eraserColor : currentColor,
+        strokeWidth: isEraser ? 24 : strokeWidth,
+      });
+    }
+
+    const canvasWidth = Math.round(width);
+    const canvasHeight = Math.round(height * 0.75);
+    const bgColor = isDark ? '#1F1F1F' : '#FFFFFF';
+
+    const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="${canvasWidth}" height="${canvasHeight}">
+  <rect width="100%" height="100%" fill="${bgColor}"/>
+  ${allPaths
+    .map(
+      (p) =>
+        `<path d="${p.d}" stroke="${p.color}" stroke-width="${p.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    )
+    .join('\n  ')}
+</svg>`;
+
+    onSaveDrawing(svgXml);
     onClose();
   };
 
@@ -91,16 +156,16 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}>
+      <View style={[styles.container, { backgroundColor: isDark ? '#202124' : '#FFFFFF' }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <SafeAreaView style={styles.safeArea}>
           {/* Top Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.iconBtn} onPress={onClose}>
-              <Ionicons name="close" size={24} color={isDark ? '#F8FAFC' : '#0F172A'} />
+              <Ionicons name="close" size={24} color={isDark ? '#E8EAED' : '#202124'} />
             </TouchableOpacity>
 
-            <Text style={[styles.headerTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+            <Text style={[styles.headerTitle, { color: isDark ? '#E8EAED' : '#202124' }]}>
               Drawing
             </Text>
 
@@ -113,7 +178,7 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
                 <Ionicons
                   name="arrow-undo"
                   size={20}
-                  color={paths.length > 0 ? (isDark ? '#F8FAFC' : '#0F172A') : '#64748B'}
+                  color={paths.length > 0 ? (isDark ? '#E8EAED' : '#202124') : '#5F6368'}
                 />
               </TouchableOpacity>
 
@@ -128,8 +193,14 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
           </View>
 
           {/* Canvas Area */}
-          <View style={styles.canvasContainer} {...panResponder.panHandlers}>
-            <Svg style={StyleSheet.absoluteFill}>
+          <View
+            style={[
+              styles.canvasContainer,
+              { backgroundColor: isDark ? '#1F1F1F' : '#FFFFFF' },
+            ]}
+            {...panResponder.panHandlers}
+          >
+            <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
               {paths.map((p, index) => (
                 <Path
                   key={index}
@@ -144,8 +215,8 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
               {currentPath ? (
                 <Path
                   d={currentPath}
-                  stroke={isEraser ? (isDark ? '#0F172A' : '#FFFFFF') : currentColor}
-                  strokeWidth={isEraser ? 16 : strokeWidth}
+                  stroke={isEraser ? (isDark ? '#1F1F1F' : '#FFFFFF') : currentColor}
+                  strokeWidth={isEraser ? 24 : strokeWidth}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -159,36 +230,36 @@ export const DrawingCanvasModal: React.FC<DrawingCanvasModalProps> = ({
             style={[
               styles.bottomToolbar,
               {
-                backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                borderTopColor: isDark ? '#334155' : '#E2E8F0',
+                backgroundColor: isDark ? '#28292C' : '#F1F3F4',
+                borderTopColor: isDark ? '#3C4043' : '#E0E0E0',
               },
             ]}
           >
             <TouchableOpacity
               style={[
                 styles.toolBtn,
-                !isEraser && [styles.toolBtnActive, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }],
+                !isEraser && [styles.toolBtnActive, { backgroundColor: isDark ? '#3C4043' : '#E8EAED' }],
               ]}
               onPress={() => setIsEraser(false)}
             >
               <MaterialCommunityIcons
                 name="brush"
                 size={22}
-                color={!isEraser ? '#6366F1' : isDark ? '#94A3B8' : '#64748B'}
+                color={!isEraser ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
               />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.toolBtn,
-                isEraser && [styles.toolBtnActive, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }],
+                isEraser && [styles.toolBtnActive, { backgroundColor: isDark ? '#3C4043' : '#E8EAED' }],
               ]}
               onPress={() => setIsEraser(true)}
             >
               <MaterialCommunityIcons
                 name="eraser"
                 size={22}
-                color={isEraser ? '#6366F1' : isDark ? '#94A3B8' : '#64748B'}
+                color={isEraser ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
               />
             </TouchableOpacity>
 
@@ -254,12 +325,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#F59E0B',
     marginLeft: 6,
   },
   saveBtnText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 13,
   },
   canvasContainer: {
@@ -283,7 +354,7 @@ const styles = StyleSheet.create({
   },
   toolBtnActive: {
     borderWidth: 1.5,
-    borderColor: '#6366F1',
+    borderColor: '#F59E0B',
   },
   divider: {
     width: 1,

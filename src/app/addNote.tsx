@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import dayjs from 'dayjs';
 import * as Crypto from 'expo-crypto';
+import { SvgUri } from 'react-native-svg';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useNotesStore } from '../store/useNotesStore';
 import { NotesRepository } from '../db/repositories/notesRepository';
@@ -90,6 +91,10 @@ export default function NoteEditorScreen() {
               createdAt: new Date(),
             },
           ]);
+        } else if (params.newType === 'drawing') {
+          setDrawingModalVisible(true);
+        } else if (params.newType === 'audio') {
+          setAudioModalVisible(true);
         }
         isInitialLoadRef.current = false;
         return;
@@ -150,7 +155,10 @@ export default function NoteEditorScreen() {
       if (!hasContent) return;
 
       const currentAttachments = [
-        ...imageUris.map((u) => ({ localUri: u, mimeType: 'image/jpeg' })),
+        ...imageUris.map((u) => ({
+          localUri: u,
+          mimeType: u.endsWith('.svg') ? 'image/svg+xml' : 'image/jpeg',
+        })),
         ...audioUris.map((u) => ({ localUri: u, mimeType: 'audio/m4a' })),
       ];
 
@@ -358,7 +366,13 @@ export default function NoteEditorScreen() {
                 activeOpacity={0.8}
                 onPress={() => setLightboxUri(uri)}
               >
-                <Image source={{ uri }} style={styles.imageThumb} />
+                {uri.endsWith('.svg') ? (
+                  <View style={[styles.imageThumb, { overflow: 'hidden' }]}>
+                    <SvgUri uri={uri} width="100%" height="100%" />
+                  </View>
+                ) : (
+                  <Image source={{ uri }} style={styles.imageThumb} />
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -549,8 +563,22 @@ export default function NoteEditorScreen() {
         visible={drawingModalVisible}
         isDark={isDark}
         onClose={() => setDrawingModalVisible(false)}
-        onSaveDrawing={(svgData) => {
-          // Drawing saved
+        onSaveDrawing={async (svgData) => {
+          try {
+            const attachmentsDir = `${FileSystem.documentDirectory}attachments/`;
+            const dirInfo = await FileSystem.getInfoAsync(attachmentsDir);
+            if (!dirInfo.exists) {
+              await FileSystem.makeDirectoryAsync(attachmentsDir, { intermediates: true });
+            }
+            const drawingUri = `${attachmentsDir}drawing_${Date.now()}.svg`;
+            await FileSystem.writeAsStringAsync(drawingUri, svgData, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
+            setImageUris((prev) => [...prev, drawingUri]);
+            triggerAutoSave();
+          } catch (e) {
+            console.error('Error saving drawing:', e);
+          }
         }}
       />
 

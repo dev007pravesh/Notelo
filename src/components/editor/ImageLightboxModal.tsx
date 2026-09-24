@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgUri } from 'react-native-svg';
 
 interface ImageLightboxModalProps {
   visible: boolean;
@@ -57,13 +58,17 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             )}
           </View>
 
-          {/* Full Screen Image */}
+          {/* Full Screen Image or Drawing */}
           <View style={styles.imageWrapper}>
-            <Image
-              source={{ uri: imageUri }}
-              style={styles.image}
-              resizeMode="contain"
-            />
+            {imageUri.endsWith('.svg') ? (
+              <SvgUri uri={imageUri} width="100%" height="80%" />
+            ) : (
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.image}
+                resizeMode="contain"
+              />
+            )}
           </View>
         </SafeAreaView>
       </View>
