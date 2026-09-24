@@ -22,7 +22,8 @@ interface NotesState {
   saveNote: (
     noteData: NewNote,
     checklists?: Array<Omit<NewChecklistItem, 'noteId'>>,
-    labelIds?: string[]
+    labelIds?: string[],
+    attachments?: Array<{ localUri: string; mimeType: string; fileSize?: number }>
   ) => Promise<NoteWithDetails>;
   togglePin: (id: string) => Promise<void>;
   moveToTrash: (id: string) => Promise<void>;
@@ -100,8 +101,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     }
   },
 
-  saveNote: async (noteData, checklists, labelIds) => {
-    const saved = await NotesRepository.upsertNote(noteData, checklists, labelIds);
+  saveNote: async (noteData, checklists, labelIds, attachments) => {
+    const saved = await NotesRepository.upsertNote(noteData, checklists, labelIds, attachments);
     await get().fetchNotes();
     return saved;
   },

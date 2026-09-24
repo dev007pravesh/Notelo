@@ -13,8 +13,8 @@ export const KEEP_COLORS: KeepColor[] = [
     name: 'Default',
     light: '#FFFFFF',
     dark: '#202124',
-    borderLight: '#E2E8F0',
-    borderDark: '#334155',
+    borderLight: '#E0E0E0',
+    borderDark: '#3C4043',
   },
   {
     id: 'coral',
@@ -106,14 +106,27 @@ export const KEEP_COLORS: KeepColor[] = [
   },
 ];
 
+export interface ResolvedColorStyle {
+  bg: string;
+  border: string;
+  textPrimary: string;
+  textSecondary: string;
+  isDefault: boolean;
+}
+
 /**
- * Resolves the appropriate card and border background color based on current theme.
+ * Resolves the appropriate card and border background color based on current theme,
+ * along with optimal contrasting text colors.
  */
-export function resolveKeepColor(hexOrId: string | undefined, isDark: boolean): { bg: string; border: string } {
+export function resolveKeepColor(hexOrId: string | undefined, isDark: boolean): ResolvedColorStyle {
   if (!hexOrId) {
-    return isDark
-      ? { bg: KEEP_COLORS[0].dark, border: KEEP_COLORS[0].borderDark }
-      : { bg: KEEP_COLORS[0].light, border: KEEP_COLORS[0].borderLight };
+    return {
+      bg: isDark ? KEEP_COLORS[0].dark : KEEP_COLORS[0].light,
+      border: isDark ? KEEP_COLORS[0].borderDark : KEEP_COLORS[0].borderLight,
+      textPrimary: isDark ? '#E8EAED' : '#202124',
+      textSecondary: isDark ? '#9AA0A6' : '#5F6368',
+      isDefault: true,
+    };
   }
 
   // Check matching by id or by light/dark hex
@@ -125,14 +138,22 @@ export function resolveKeepColor(hexOrId: string | undefined, isDark: boolean): 
   );
 
   if (match) {
-    return isDark
-      ? { bg: match.dark, border: match.borderDark }
-      : { bg: match.light, border: match.borderLight };
+    const isDef = match.id === 'default';
+    return {
+      bg: isDark ? match.dark : match.light,
+      border: isDark ? match.borderDark : match.borderLight,
+      textPrimary: isDark ? '#F8FAFC' : '#202124',
+      textSecondary: isDark ? 'rgba(255, 255, 255, 0.78)' : '#3C4043',
+      isDefault: isDef,
+    };
   }
 
   // Fallback to custom hex
   return {
     bg: hexOrId,
-    border: isDark ? '#334155' : '#CBD5E1',
+    border: isDark ? '#3C4043' : '#E0E0E0',
+    textPrimary: isDark ? '#E8EAED' : '#202124',
+    textSecondary: isDark ? '#9AA0A6' : '#5F6368',
+    isDefault: false,
   };
 }

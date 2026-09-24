@@ -42,7 +42,7 @@ export default function SearchScreen() {
     <SafeAreaView
       style={[
         styles.container,
-        { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' },
+        { backgroundColor: isDark ? '#1F1F1F' : '#FFFFFF' },
       ]}
       edges={['top']}
     >
@@ -51,8 +51,8 @@ export default function SearchScreen() {
         style={[
           styles.searchBar,
           {
-            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-            borderColor: isDark ? '#334155' : '#E2E8F0',
+            backgroundColor: isDark ? '#2D2E30' : '#F1F3F4',
+            borderColor: isDark ? '#3C4043' : '#E8EAED',
           },
         ]}
       >
@@ -60,14 +60,14 @@ export default function SearchScreen() {
           <Ionicons
             name="arrow-back"
             size={22}
-            color={isDark ? '#CBD5E1' : '#475569'}
+            color={isDark ? '#E8EAED' : '#5F6368'}
           />
         </TouchableOpacity>
 
         <TextInput
-          style={[styles.input, { color: isDark ? '#FFFFFF' : '#0F172A' }]}
+          style={[styles.input, { color: isDark ? '#E8EAED' : '#202124' }]}
           placeholder="Search your notes..."
-          placeholderTextColor={isDark ? '#94A3B8' : '#64748B'}
+          placeholderTextColor={isDark ? '#9AA0A6' : '#70757A'}
           value={inputVal}
           onChangeText={setInputVal}
           autoFocus
@@ -79,7 +79,7 @@ export default function SearchScreen() {
             <Ionicons
               name="close-circle"
               size={20}
-              color={isDark ? '#94A3B8' : '#64748B'}
+              color={isDark ? '#9AA0A6' : '#70757A'}
             />
           </TouchableOpacity>
         )}
@@ -102,12 +102,12 @@ export default function SearchScreen() {
               <Ionicons
                 name="search-outline"
                 size={48}
-                color={isDark ? '#475569' : '#94A3B8'}
+                color={isDark ? '#5F6368' : '#9AA0A6'}
               />
               <Text
                 style={[
                   styles.emptyText,
-                  { color: isDark ? '#94A3B8' : '#64748B' },
+                  { color: isDark ? '#9AA0A6' : '#5F6368' },
                 ]}
               >
                 No matching notes found

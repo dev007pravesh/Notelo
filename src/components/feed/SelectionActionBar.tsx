@@ -48,8 +48,8 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#1E293B' : '#EEF2FF',
-          borderBottomColor: isDark ? '#334155' : '#C7D2FE',
+          backgroundColor: isDark ? '#2D2E30' : '#FEF3C7',
+          borderBottomColor: isDark ? '#3C4043' : '#FDE68A',
         },
       ]}
     >
@@ -63,9 +63,9 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="close" size={24} color={isDark ? '#F8FAFC' : '#1E1B4B'} />
+          <Ionicons name="close" size={24} color={isDark ? '#E8EAED' : '#202124'} />
         </TouchableOpacity>
-        <Text style={[styles.countText, { color: isDark ? '#F8FAFC' : '#1E1B4B' }]}>
+        <Text style={[styles.countText, { color: isDark ? '#E8EAED' : '#202124' }]}>
           {selectedCount}
         </Text>
       </View>
@@ -80,7 +80,7 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
           <MaterialCommunityIcons
             name={allPinned ? 'pin-off-outline' : 'pin-outline'}
             size={22}
-            color={isDark ? '#F8FAFC' : '#1E1B4B'}
+            color={isDark ? '#E8EAED' : '#202124'}
           />
         </TouchableOpacity>
 
@@ -90,7 +90,7 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
             onPress={onMoveToFolderPress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="folder-outline" size={22} color={isDark ? '#F8FAFC' : '#1E1B4B'} />
+            <Ionicons name="folder-outline" size={22} color={isDark ? '#E8EAED' : '#202124'} />
           </TouchableOpacity>
         )}
 
@@ -107,7 +107,7 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
           onPress={selectAll}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="checkmark-done" size={22} color={isDark ? '#F8FAFC' : '#1E1B4B'} />
+          <Ionicons name="checkmark-done" size={22} color={isDark ? '#E8EAED' : '#202124'} />
         </TouchableOpacity>
       </View>
     </View>

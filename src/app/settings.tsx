@@ -199,45 +199,76 @@ export default function SettingsScreen() {
       : `${(lastBackupSize / 1024).toFixed(0)} KB`
     : '0 KB';
 
+  const isDark = theme === 'dark';
+
+  const tColors = {
+    bg: isDark ? '#1F1F1F' : '#F8FAFC',
+    headerBg: isDark ? '#202124' : '#FFFFFF',
+    headerBorder: isDark ? '#3C4043' : '#E8EAED',
+    cardBg: isDark ? '#202124' : '#FFFFFF',
+    cardBorder: isDark ? '#3C4043' : '#E8EAED',
+    metaRowBg: isDark ? '#18191B' : '#F1F3F4',
+    textPrimary: isDark ? '#E8EAED' : '#202124',
+    textSecondary: isDark ? '#9AA0A6' : '#5F6368',
+    secondaryBtnBg: isDark ? '#2D2E30' : '#F1F3F4',
+    secondaryBtnText: isDark ? '#E8EAED' : '#202124',
+    segmentBg: isDark ? '#18191B' : '#E8EAED',
+    segmentActiveBg: isDark ? '#2D2E30' : '#FFFFFF',
+    segmentTextActive: isDark ? '#FFFFFF' : '#202124',
+    segmentTextInactive: isDark ? '#9AA0A6' : '#5F6368',
+    divider: isDark ? '#3C4043' : '#E8EAED',
+    modalBg: isDark ? '#1F1F1F' : '#FFFFFF',
+    keyBg: isDark ? '#2D2E30' : '#F1F3F4',
+    keyText: isDark ? '#E8EAED' : '#202124',
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: tColors.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: tColors.headerBg,
+            borderBottomColor: tColors.headerBorder,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={tColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: tColors.textPrimary }]}>Settings</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* SECTION: BACKUP & RESTORE */}
-        <Text style={styles.sectionHeader}>BACKUP & RESTORE</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: tColors.textSecondary }]}>BACKUP & RESTORE</Text>
+        <View style={[styles.card, { backgroundColor: tColors.cardBg, borderColor: tColors.cardBorder }]}>
           <View style={styles.backupHeader}>
             <View style={styles.backupIconContainer}>
               <MaterialCommunityIcons name="shield-sync-outline" size={28} color="#10B981" />
             </View>
             <View style={styles.backupInfo}>
-              <Text style={styles.backupTitle}>Zero-Server Backup</Text>
-              <Text style={styles.backupSubtitle}>
+              <Text style={[styles.backupTitle, { color: tColors.textPrimary }]}>Zero-Server Backup</Text>
+              <Text style={[styles.backupSubtitle, { color: tColors.textSecondary }]}>
                 Private offline archive with database & attachments
               </Text>
             </View>
           </View>
 
-          <View style={styles.backupMetaRow}>
+          <View style={[styles.backupMetaRow, { backgroundColor: tColors.metaRowBg }]}>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Last Local Backup</Text>
-              <Text style={styles.metaValue}>{formattedBackupDate}</Text>
+              <Text style={[styles.metaLabel, { color: tColors.textSecondary }]}>Last Local Backup</Text>
+              <Text style={[styles.metaValue, { color: tColors.textPrimary }]}>{formattedBackupDate}</Text>
             </View>
             <View style={styles.metaItemRight}>
-              <Text style={styles.metaLabel}>Backup Size</Text>
-              <Text style={styles.metaValue}>{formattedBackupSize}</Text>
+              <Text style={[styles.metaLabel, { color: tColors.textSecondary }]}>Backup Size</Text>
+              <Text style={[styles.metaValue, { color: tColors.textPrimary }]}>{formattedBackupSize}</Text>
             </View>
           </View>
 
@@ -257,91 +288,91 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
 
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
 
           {/* Secondary Actions */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
               onPress={handleExportBackup}
               disabled={isBackingUp || isRestoring}
             >
-              <Feather name="share-2" size={17} color="#FFFFFF" />
-              <Text style={styles.secondaryButtonText}>Export ZIP</Text>
+              <Feather name="share-2" size={17} color={tColors.secondaryBtnText} />
+              <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Export ZIP</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
               onPress={handleRestore}
               disabled={isBackingUp || isRestoring}
             >
               {isRestoring ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={tColors.secondaryBtnText} size="small" />
               ) : (
                 <>
-                  <Feather name="download" size={17} color="#FFFFFF" />
-                  <Text style={styles.secondaryButtonText}>Restore ZIP</Text>
+                  <Feather name="download" size={17} color={tColors.secondaryBtnText} />
+                  <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Restore ZIP</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
 
           {/* Auto Backup Toggle */}
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={styles.rowTitle}>Auto-Backup to Local Archive</Text>
-              <Text style={styles.rowSubtitle}>
+              <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Auto-Backup to Local Archive</Text>
+              <Text style={[styles.rowSubtitle, { color: tColors.textSecondary }]}>
                 Automatically snapshot database and media weekly
               </Text>
             </View>
             <Switch
               value={autoBackupEnabled}
               onValueChange={setAutoBackupEnabled}
-              trackColor={{ false: '#374151', true: '#10B981' }}
+              trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#10B981' }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
         {/* SECTION: SECURITY & APP LOCK */}
-        <Text style={styles.sectionHeader}>SECURITY</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: tColors.textSecondary }]}>SECURITY</Text>
+        <View style={[styles.card, { backgroundColor: tColors.cardBg, borderColor: tColors.cardBorder }]}>
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={styles.rowTitle}>App Lock (PIN Passcode)</Text>
-              <Text style={styles.rowSubtitle}>
+              <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>App Lock (PIN Passcode)</Text>
+              <Text style={[styles.rowSubtitle, { color: tColors.textSecondary }]}>
                 Require 4-digit PIN when opening Notelo
               </Text>
             </View>
             <Switch
               value={appLockEnabled}
               onValueChange={handleToggleAppLock}
-              trackColor={{ false: '#374151', true: '#6366F1' }}
+              trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#F59E0B' }}
               thumbColor="#FFFFFF"
             />
           </View>
 
           {appLockEnabled && (
             <>
-              <View style={styles.cardDivider} />
+              <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
               <View style={styles.row}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.rowTitle}>Biometric Authentication</Text>
-                  <Text style={styles.rowSubtitle}>
+                  <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Biometric Authentication</Text>
+                  <Text style={[styles.rowSubtitle, { color: tColors.textSecondary }]}>
                     Use Face ID or Fingerprint to unlock
                   </Text>
                 </View>
                 <Switch
                   value={biometricAuthEnabled}
                   onValueChange={setBiometricAuthEnabled}
-                  trackColor={{ false: '#374151', true: '#6366F1' }}
+                  trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#F59E0B' }}
                   thumbColor="#FFFFFF"
                 />
               </View>
 
-              <View style={styles.cardDivider} />
+              <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
               <TouchableOpacity
                 style={styles.clickableRow}
                 onPress={() => {
@@ -352,38 +383,96 @@ export default function SettingsScreen() {
                   setPinModalVisible(true);
                 }}
               >
-                <Text style={styles.clickableRowText}>Change Passcode</Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                <Text style={[styles.clickableRowText, { color: '#F59E0B' }]}>Change Passcode</Text>
+                <Ionicons name="chevron-forward" size={18} color={tColors.textSecondary} />
               </TouchableOpacity>
             </>
           )}
         </View>
 
         {/* SECTION: DISPLAY & PREFERENCES */}
-        <Text style={styles.sectionHeader}>DISPLAY & PREFERENCES</Text>
-        <View style={styles.card}>
-          {/* Feed View Mode */}
+        <Text style={[styles.sectionHeader, { color: tColors.textSecondary }]}>DISPLAY & PREFERENCES</Text>
+        <View style={[styles.card, { backgroundColor: tColors.cardBg, borderColor: tColors.cardBorder }]}>
+          {/* Theme Mode: Light vs Dark */}
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>Default Note Layout</Text>
-              <Text style={styles.rowSubtitle}>Masonry Grid or Single Column List</Text>
+              <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>App Theme</Text>
+              <Text style={[styles.rowSubtitle, { color: tColors.textSecondary }]}>Light or Dark appearance</Text>
             </View>
-            <View style={styles.segmentedControl}>
+            <View style={[styles.segmentedControl, { backgroundColor: tColors.segmentBg }]}>
               <TouchableOpacity
                 style={[
                   styles.segmentOption,
-                  viewMode === 'grid' && styles.segmentOptionActive,
+                  theme === 'light' && [styles.segmentOptionActive, { backgroundColor: tColors.segmentActiveBg }],
+                ]}
+                onPress={() => setTheme('light')}
+              >
+                <Ionicons
+                  name="sunny-outline"
+                  size={16}
+                  color={theme === 'light' ? tColors.segmentTextActive : tColors.segmentTextInactive}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: theme === 'light' ? tColors.segmentTextActive : tColors.segmentTextInactive },
+                    theme === 'light' && styles.segmentTextActive,
+                  ]}
+                >
+                  Light
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentOption,
+                  theme === 'dark' && [styles.segmentOptionActive, { backgroundColor: tColors.segmentActiveBg }],
+                ]}
+                onPress={() => setTheme('dark')}
+              >
+                <Ionicons
+                  name="moon-outline"
+                  size={16}
+                  color={theme === 'dark' ? tColors.segmentTextActive : tColors.segmentTextInactive}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: theme === 'dark' ? tColors.segmentTextActive : tColors.segmentTextInactive },
+                    theme === 'dark' && styles.segmentTextActive,
+                  ]}
+                >
+                  Dark
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
+
+          {/* Feed View Mode */}
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Default Note Layout</Text>
+              <Text style={[styles.rowSubtitle, { color: tColors.textSecondary }]}>Masonry Grid or Single Column List</Text>
+            </View>
+            <View style={[styles.segmentedControl, { backgroundColor: tColors.segmentBg }]}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentOption,
+                  viewMode === 'grid' && [styles.segmentOptionActive, { backgroundColor: tColors.segmentActiveBg }],
                 ]}
                 onPress={() => setViewMode('grid')}
               >
                 <Ionicons
                   name="grid-outline"
                   size={16}
-                  color={viewMode === 'grid' ? '#000000' : '#9CA3AF'}
+                  color={viewMode === 'grid' ? tColors.segmentTextActive : tColors.segmentTextInactive}
                 />
                 <Text
                   style={[
                     styles.segmentText,
+                    { color: viewMode === 'grid' ? tColors.segmentTextActive : tColors.segmentTextInactive },
                     viewMode === 'grid' && styles.segmentTextActive,
                   ]}
                 >
@@ -394,18 +483,19 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.segmentOption,
-                  viewMode === 'list' && styles.segmentOptionActive,
+                  viewMode === 'list' && [styles.segmentOptionActive, { backgroundColor: tColors.segmentActiveBg }],
                 ]}
                 onPress={() => setViewMode('list')}
               >
                 <Ionicons
                   name="list-outline"
                   size={16}
-                  color={viewMode === 'list' ? '#000000' : '#9CA3AF'}
+                  color={viewMode === 'list' ? tColors.segmentTextActive : tColors.segmentTextInactive}
                 />
                 <Text
                   style={[
                     styles.segmentText,
+                    { color: viewMode === 'list' ? tColors.segmentTextActive : tColors.segmentTextInactive },
                     viewMode === 'list' && styles.segmentTextActive,
                   ]}
                 >
@@ -417,20 +507,20 @@ export default function SettingsScreen() {
         </View>
 
         {/* SECTION: ABOUT & PRIVACY */}
-        <Text style={styles.sectionHeader}>ABOUT NOTELO</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: tColors.textSecondary }]}>ABOUT NOTELO</Text>
+        <View style={[styles.card, { backgroundColor: tColors.cardBg, borderColor: tColors.cardBorder }]}>
           <View style={styles.row}>
-            <Text style={styles.rowTitle}>App Version</Text>
-            <Text style={styles.metaValue}>1.0.4 (Build 5)</Text>
+            <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>App Version</Text>
+            <Text style={[styles.metaValue, { color: tColors.textSecondary }]}>2.0.0 (Build 5)</Text>
           </View>
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
           <View style={styles.row}>
-            <Text style={styles.rowTitle}>Database Engine</Text>
-            <Text style={styles.metaValue}>SQLite 3 (WAL + FTS5)</Text>
+            <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Database Engine</Text>
+            <Text style={[styles.metaValue, { color: tColors.textSecondary }]}>SQLite 3 (WAL + FTS5)</Text>
           </View>
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
           <View style={styles.row}>
-            <Text style={styles.rowTitle}>Privacy Architecture</Text>
+            <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Privacy Architecture</Text>
             <Text style={[styles.metaValue, { color: '#10B981' }]}>100% Offline & Private</Text>
           </View>
         </View>
@@ -443,18 +533,18 @@ export default function SettingsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setPinModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: tColors.modalBg }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setPinModalVisible(false)}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={tColors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Set Passcode</Text>
+            <Text style={[styles.modalTitle, { color: tColors.textPrimary }]}>Set Passcode</Text>
             <View style={{ width: 24 }} />
           </View>
 
           <View style={styles.pinContent}>
-            <MaterialCommunityIcons name="lock-outline" size={48} color="#6366F1" />
-            <Text style={styles.pinPrompt}>
+            <MaterialCommunityIcons name="lock-outline" size={48} color="#F59E0B" />
+            <Text style={[styles.pinPrompt, { color: tColors.textPrimary }]}>
               {pinStep === 'create' ? 'Enter a 4-digit passcode' : 'Confirm your 4-digit passcode'}
             </Text>
 
@@ -465,7 +555,8 @@ export default function SettingsScreen() {
                   key={index}
                   style={[
                     styles.dot,
-                    enteredPin.length > index && styles.dotFilled,
+                    { borderColor: tColors.divider },
+                    enteredPin.length > index && [styles.dotFilled, { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }],
                   ]}
                 />
               ))}
@@ -491,20 +582,20 @@ export default function SettingsScreen() {
                     return (
                       <TouchableOpacity
                         key={cIndex}
-                        style={styles.key}
+                        style={[styles.key, { backgroundColor: tColors.keyBg }]}
                         onPress={handleKeypadDelete}
                       >
-                        <Ionicons name="backspace-outline" size={26} color="#FFFFFF" />
+                        <Ionicons name="backspace-outline" size={26} color={tColors.keyText} />
                       </TouchableOpacity>
                     );
                   }
                   return (
                     <TouchableOpacity
                       key={cIndex}
-                      style={styles.key}
+                      style={[styles.key, { backgroundColor: tColors.keyBg }]}
                       onPress={() => handleKeypadPress(val)}
                     >
-                      <Text style={styles.keyText}>{val}</Text>
+                      <Text style={[styles.keyText, { color: tColors.keyText }]}>{val}</Text>
                     </TouchableOpacity>
                   );
                 })}

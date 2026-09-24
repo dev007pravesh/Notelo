@@ -77,17 +77,17 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
           style={[
             styles.drawerContent,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderRightColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#202124' : '#FFFFFF',
+              borderRightColor: isDark ? '#3C4043' : '#E8EAED',
             },
           ]}
         >
           {/* Drawer Header */}
           <View style={styles.drawerHeader}>
-            <Text style={[styles.drawerBrand, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+            <Text style={[styles.drawerBrand, { color: isDark ? '#E8EAED' : '#202124' }]}>
               Notelo
             </Text>
-            <Text style={[styles.drawerSub, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+            <Text style={[styles.drawerSub, { color: isDark ? '#9AA0A6' : '#5F6368' }]}>
               Google Keep Edition
             </Text>
           </View>
@@ -99,7 +99,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 styles.navItem,
                 activeFolderId === 'all' && [
                   styles.navItemActive,
-                  { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.2)' : '#EEF2FF' },
+                  { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
                 ],
               ]}
               onPress={() => handleSelectFolder('all')}
@@ -107,13 +107,13 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
               <Ionicons
                 name="bulb-outline"
                 size={22}
-                color={activeFolderId === 'all' ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
+                color={activeFolderId === 'all' ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
               />
               <Text
                 style={[
                   styles.navItemText,
                   {
-                    color: activeFolderId === 'all' ? '#6366F1' : isDark ? '#F8FAFC' : '#1E293B',
+                    color: activeFolderId === 'all' ? (isDark ? '#FBBF24' : '#D97706') : isDark ? '#E8EAED' : '#202124',
                     fontWeight: activeFolderId === 'all' ? '700' : '500',
                   },
                 ]}
@@ -124,7 +124,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
 
             {/* Folders Section Header */}
             <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: isDark ? '#64748B' : '#94A3B8' }]}>
+              <Text style={[styles.sectionTitle, { color: isDark ? '#9AA0A6' : '#70757A' }]}>
                 FOLDERS
               </Text>
               <TouchableOpacity
@@ -134,7 +134,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 <Ionicons
                   name={isCreatingFolder ? 'close' : 'add'}
                   size={20}
-                  color={isDark ? '#94A3B8' : '#64748B'}
+                  color={isDark ? '#9AA0A6' : '#5F6368'}
                 />
               </TouchableOpacity>
             </View>
@@ -146,18 +146,22 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                   value={newFolderName}
                   onChangeText={setNewFolderName}
                   placeholder="New folder name"
-                  placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                  placeholderTextColor={isDark ? '#9AA0A6' : '#70757A'}
                   style={[
                     styles.newFolderInput,
                     {
-                      color: isDark ? '#F8FAFC' : '#0F172A',
-                      borderColor: isDark ? '#475569' : '#CBD5E1',
+                      color: isDark ? '#E8EAED' : '#202124',
+                      borderColor: isDark ? '#3C4043' : '#E0E0E0',
+                      backgroundColor: isDark ? '#2D2E30' : '#F1F3F4',
                     },
                   ]}
                   autoFocus
                   onSubmitEditing={handleCreateFolder}
                 />
-                <TouchableOpacity style={styles.createFolderBtn} onPress={handleCreateFolder}>
+                <TouchableOpacity
+                  style={[styles.createFolderBtn, { backgroundColor: '#F59E0B' }]}
+                  onPress={handleCreateFolder}
+                >
                   <Ionicons name="checkmark" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
@@ -173,7 +177,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                     styles.navItem,
                     isSelected && [
                       styles.navItemActive,
-                      { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.2)' : '#EEF2FF' },
+                      { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
                     ],
                   ]}
                   onPress={() => handleSelectFolder(folder.id)}
@@ -181,14 +185,14 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                   <Ionicons
                     name="folder-outline"
                     size={21}
-                    color={isSelected ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
+                    color={isSelected ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
                   />
                   <Text
                     numberOfLines={1}
                     style={[
                       styles.navItemText,
                       {
-                        color: isSelected ? '#6366F1' : isDark ? '#F8FAFC' : '#1E293B',
+                        color: isSelected ? (isDark ? '#FBBF24' : '#D97706') : isDark ? '#E8EAED' : '#202124',
                         fontWeight: isSelected ? '700' : '500',
                       },
                     ]}
@@ -199,7 +203,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
               );
             })}
 
-            <View style={[styles.divider, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]} />
+            <View style={[styles.divider, { backgroundColor: isDark ? '#3C4043' : '#E8EAED' }]} />
 
             {/* Archive */}
             <TouchableOpacity
@@ -209,8 +213,8 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 router.push('/archive' as any);
               }}
             >
-              <Ionicons name="archive-outline" size={21} color={isDark ? '#94A3B8' : '#475569'} />
-              <Text style={[styles.navItemText, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>
+              <Ionicons name="archive-outline" size={21} color={isDark ? '#9AA0A6' : '#5F6368'} />
+              <Text style={[styles.navItemText, { color: isDark ? '#E8EAED' : '#202124' }]}>
                 Archive
               </Text>
             </TouchableOpacity>
@@ -223,8 +227,8 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 router.push('/trash' as any);
               }}
             >
-              <Ionicons name="trash-outline" size={21} color={isDark ? '#94A3B8' : '#475569'} />
-              <Text style={[styles.navItemText, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>
+              <Ionicons name="trash-outline" size={21} color={isDark ? '#9AA0A6' : '#5F6368'} />
+              <Text style={[styles.navItemText, { color: isDark ? '#E8EAED' : '#202124' }]}>
                 Trash
               </Text>
             </TouchableOpacity>
@@ -237,8 +241,8 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 onOpenSettings();
               }}
             >
-              <Ionicons name="settings-outline" size={21} color={isDark ? '#94A3B8' : '#475569'} />
-              <Text style={[styles.navItemText, { color: isDark ? '#F8FAFC' : '#1E293B' }]}>
+              <Ionicons name="settings-outline" size={21} color={isDark ? '#9AA0A6' : '#5F6368'} />
+              <Text style={[styles.navItemText, { color: isDark ? '#E8EAED' : '#202124' }]}>
                 Settings
               </Text>
             </TouchableOpacity>

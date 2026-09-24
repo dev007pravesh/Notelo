@@ -34,8 +34,8 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
         style={[
           styles.pillCapsule,
           {
-            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-            borderColor: isDark ? '#334155' : '#E2E8F0',
+            backgroundColor: isDark ? '#2D2E30' : '#F1F3F4',
+            borderColor: isDark ? '#3C4043' : '#E8EAED',
           },
         ]}
       >
@@ -46,7 +46,7 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
           onPress={onMenuPress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="menu" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+          <Ionicons name="menu" size={22} color={isDark ? '#E8EAED' : '#5F6368'} />
         </TouchableOpacity>
 
         {/* Center: Search Input */}
@@ -55,8 +55,8 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search your notes"
-            placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-            style={[styles.searchInput, { color: isDark ? '#F8FAFC' : '#0F172A' }]}
+            placeholderTextColor={isDark ? '#9AA0A6' : '#70757A'}
+            style={[styles.searchInput, { color: isDark ? '#E8EAED' : '#202124' }]}
             returnKeyType="search"
             clearButtonMode="never"
           />
@@ -66,7 +66,7 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
               style={styles.clearButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close-circle" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+              <Ionicons name="close-circle" size={18} color={isDark ? '#9AA0A6' : '#70757A'} />
             </TouchableOpacity>
           )}
         </View>
@@ -82,7 +82,7 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
             <MaterialCommunityIcons
               name={viewMode === 'grid' ? 'view-agenda-outline' : 'view-grid-outline'}
               size={21}
-              color={isDark ? '#CBD5E1' : '#475569'}
+              color={isDark ? '#E8EAED' : '#5F6368'}
             />
           </TouchableOpacity>
 
@@ -92,7 +92,7 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsP
             onPress={onSettingsPress}
           >
             <View style={styles.avatarInner}>
-              <Ionicons name="settings-outline" size={17} color="#FFFFFF" />
+              <Ionicons name="settings-outline" size={16} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
         </View>
@@ -115,10 +115,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   iconButton: {
     width: 36,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#F59E0B',
     alignItems: 'center',
     justifyContent: 'center',
   },

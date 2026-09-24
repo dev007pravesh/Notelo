@@ -38,8 +38,8 @@ export const KeepBottomBar: React.FC<KeepBottomBarProps> = ({
         style={[
           styles.bar,
           {
-            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-            borderTopColor: isDark ? '#334155' : '#E2E8F0',
+            backgroundColor: isDark ? '#202124' : '#FFFFFF',
+            borderTopColor: isDark ? '#35373B' : '#E8EAED',
           },
         ]}
       >
@@ -51,7 +51,7 @@ export const KeepBottomBar: React.FC<KeepBottomBarProps> = ({
             onPress={() => handleAction(onNewChecklistNote)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="checkbox-outline" size={23} color={isDark ? '#94A3B8' : '#475569'} />
+            <Ionicons name="checkbox-outline" size={23} color={isDark ? '#9AA0A6' : '#5F6368'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -60,7 +60,7 @@ export const KeepBottomBar: React.FC<KeepBottomBarProps> = ({
             onPress={() => handleAction(onNewDrawingNote)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="brush" size={23} color={isDark ? '#94A3B8' : '#475569'} />
+            <MaterialCommunityIcons name="brush" size={23} color={isDark ? '#9AA0A6' : '#5F6368'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -69,7 +69,7 @@ export const KeepBottomBar: React.FC<KeepBottomBarProps> = ({
             onPress={() => handleAction(onNewAudioNote)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="mic-outline" size={23} color={isDark ? '#94A3B8' : '#475569'} />
+            <Ionicons name="mic-outline" size={23} color={isDark ? '#9AA0A6' : '#5F6368'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -78,7 +78,7 @@ export const KeepBottomBar: React.FC<KeepBottomBarProps> = ({
             onPress={() => handleAction(onNewImageNote)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="image-outline" size={23} color={isDark ? '#94A3B8' : '#475569'} />
+            <Ionicons name="image-outline" size={23} color={isDark ? '#9AA0A6' : '#5F6368'} />
           </TouchableOpacity>
         </View>
 
@@ -112,9 +112,9 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 20 : 6,
     borderTopWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
     elevation: 8,
   },
   quickGroup: {
@@ -133,13 +133,13 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#F59E0B',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
     elevation: 6,
     marginBottom: Platform.OS === 'ios' ? 4 : 0,
   },

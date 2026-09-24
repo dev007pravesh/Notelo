@@ -51,12 +51,12 @@ export const ColorPaletteModal: React.FC<ColorPaletteModalProps> = ({
           style={[
             styles.container,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              backgroundColor: isDark ? '#202124' : '#FFFFFF',
+              borderColor: isDark ? '#3C4043' : '#E8EAED',
             },
           ]}
         >
-          <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+          <Text style={[styles.title, { color: isDark ? '#E8EAED' : '#202124' }]}>
             Colour
           </Text>
 
@@ -80,7 +80,7 @@ export const ColorPaletteModal: React.FC<ColorPaletteModalProps> = ({
                     styles.colorCircle,
                     {
                       backgroundColor: hex,
-                      borderColor: isSelected ? '#6366F1' : isDark ? c.borderDark : c.borderLight,
+                      borderColor: isSelected ? '#F59E0B' : isDark ? c.borderDark : c.borderLight,
                       borderWidth: isSelected ? 3 : 1.5,
                     },
                   ]}

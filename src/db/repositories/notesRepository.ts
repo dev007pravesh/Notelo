@@ -1,10 +1,24 @@
 import { eq, and, desc, sql, like, or } from 'drizzle-orm';
 import { db, expoDb } from '../db';
-import { notes, checklistItems, noteLabels, labels, Note, NewNote, ChecklistItem, NewChecklistItem } from '../schema';
+import {
+  notes,
+  checklistItems,
+  noteLabels,
+  labels,
+  attachments,
+  Note,
+  NewNote,
+  ChecklistItem,
+  NewChecklistItem,
+  Attachment,
+  Label,
+} from '../schema';
 
 export interface NoteWithDetails extends Note {
   checklists?: ChecklistItem[];
   labelIds?: string[];
+  labels?: Label[];
+  attachments?: Attachment[];
 }
 
 export class NotesRepository {
@@ -85,7 +99,8 @@ export class NotesRepository {
   static async upsertNote(
     noteData: NewNote,
     checklistsList?: Array<Omit<NewChecklistItem, 'noteId'>>,
-    labelIdList?: string[]
+    labelIdList?: string[],
+    attachmentList?: Array<{ localUri: string; mimeType: string; fileSize?: number }>
   ): Promise<NoteWithDetails> {
     const now = new Date();
     const finalData = {
@@ -135,6 +150,23 @@ export class NotesRepository {
             labelIdList.map((labelId) => ({
               noteId: finalData.id,
               labelId,
+            }))
+          );
+        }
+      }
+
+      // Update attachments if provided
+      if (attachmentList !== undefined) {
+        await tx.delete(attachments).where(eq(attachments.noteId, finalData.id));
+        if (attachmentList.length > 0) {
+          await tx.insert(attachments).values(
+            attachmentList.map((att, idx) => ({
+              id: `att_${finalData.id}_${idx}_${Date.now()}`,
+              noteId: finalData.id,
+              localUri: att.localUri,
+              mimeType: att.mimeType,
+              fileSize: att.fileSize || 0,
+              createdAt: now,
             }))
           );
         }
@@ -269,7 +301,7 @@ export class NotesRepository {
   }
 
   /**
-   * Attach checklist items and label IDs to notes.
+   * Attach checklist items, label IDs, labels, and attachments to notes.
    */
   private static async attachChecklistsAndLabels(noteList: Note[]): Promise<NoteWithDetails[]> {
     if (noteList.length === 0) return [];
@@ -288,6 +320,19 @@ export class NotesRepository {
       .from(noteLabels)
       .where(sql`${noteLabels.noteId} IN (${sql.join(noteIds.map((id) => sql`${id}`), sql`, `)})`);
 
+    // Fetch all labels definition
+    const allLabels = await db.select().from(labels);
+    const labelByIdMap = new Map<string, Label>();
+    for (const l of allLabels) {
+      labelByIdMap.set(l.id, l);
+    }
+
+    // Fetch attachments
+    const allAttachments = await db
+      .select()
+      .from(attachments)
+      .where(sql`${attachments.noteId} IN (${sql.join(noteIds.map((id) => sql`${id}`), sql`, `)})`);
+
     const checklistsByNoteId = new Map<string, ChecklistItem[]>();
     for (const item of allChecklists) {
       const list = checklistsByNoteId.get(item.noteId) || [];
@@ -295,17 +340,34 @@ export class NotesRepository {
       checklistsByNoteId.set(item.noteId, list);
     }
 
-    const labelsByNoteId = new Map<string, string[]>();
+    const labelIdsByNoteId = new Map<string, string[]>();
+    const labelsByNoteId = new Map<string, Label[]>();
     for (const item of allNoteLabels) {
-      const list = labelsByNoteId.get(item.noteId) || [];
-      list.push(item.labelId);
-      labelsByNoteId.set(item.noteId, list);
+      const idList = labelIdsByNoteId.get(item.noteId) || [];
+      idList.push(item.labelId);
+      labelIdsByNoteId.set(item.noteId, idList);
+
+      const matchedLabel = labelByIdMap.get(item.labelId);
+      if (matchedLabel) {
+        const fullList = labelsByNoteId.get(item.noteId) || [];
+        fullList.push(matchedLabel);
+        labelsByNoteId.set(item.noteId, fullList);
+      }
+    }
+
+    const attachmentsByNoteId = new Map<string, Attachment[]>();
+    for (const att of allAttachments) {
+      const list = attachmentsByNoteId.get(att.noteId) || [];
+      list.push(att);
+      attachmentsByNoteId.set(att.noteId, list);
     }
 
     return noteList.map((n) => ({
       ...n,
       checklists: checklistsByNoteId.get(n.id) || [],
-      labelIds: labelsByNoteId.get(n.id) || [],
+      labelIds: labelIdsByNoteId.get(n.id) || [],
+      labels: labelsByNoteId.get(n.id) || [],
+      attachments: attachmentsByNoteId.get(n.id) || [],
     }));
   }
 }

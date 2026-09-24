@@ -107,6 +107,16 @@ export default function NoteEditorScreen() {
           setFolderId(existing.folderId);
           setChecklists(existing.checklists || []);
           setLabelIds(existing.labelIds || []);
+          if (existing.attachments && existing.attachments.length > 0) {
+            const imgs = existing.attachments
+              .filter((a) => a.mimeType.startsWith('image'))
+              .map((a) => a.localUri);
+            const auds = existing.attachments
+              .filter((a) => a.mimeType.startsWith('audio'))
+              .map((a) => a.localUri);
+            setImageUris(imgs);
+            setAudioUris(auds);
+          }
           if (existing.reminderAt) {
             setReminderAt(new Date(existing.reminderAt));
           }
@@ -139,6 +149,11 @@ export default function NoteEditorScreen() {
 
       if (!hasContent) return;
 
+      const currentAttachments = [
+        ...imageUris.map((u) => ({ localUri: u, mimeType: 'image/jpeg' })),
+        ...audioUris.map((u) => ({ localUri: u, mimeType: 'audio/m4a' })),
+      ];
+
       try {
         await saveNote(
           {
@@ -154,7 +169,8 @@ export default function NoteEditorScreen() {
             isDeleted: false,
           },
           noteType === 'checklist' ? checklists : undefined,
-          labelIds
+          labelIds,
+          currentAttachments
         );
         setLastEditedTime(dayjs().format('h:mm A'));
       } catch (e) {
@@ -166,7 +182,7 @@ export default function NoteEditorScreen() {
   // Trigger auto-save on state change
   useEffect(() => {
     triggerAutoSave();
-  }, [title, content, noteType, color, isPinned, isArchived, reminderAt, checklists, labelIds]);
+  }, [title, content, noteType, color, isPinned, isArchived, reminderAt, checklists, labelIds, imageUris, audioUris]);
 
   const handleBack = async () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -174,9 +190,14 @@ export default function NoteEditorScreen() {
       title.trim().length > 0 ||
       content.trim().length > 0 ||
       checklists.some((c) => c.text.trim().length > 0) ||
-      imageUris.length > 0;
+      imageUris.length > 0 ||
+      audioUris.length > 0;
 
     if (hasContent) {
+      const currentAttachments = [
+        ...imageUris.map((u) => ({ localUri: u, mimeType: 'image/jpeg' })),
+        ...audioUris.map((u) => ({ localUri: u, mimeType: 'audio/m4a' })),
+      ];
       await saveNote(
         {
           id: currentId,
@@ -191,7 +212,8 @@ export default function NoteEditorScreen() {
           isDeleted: false,
         },
         noteType === 'checklist' ? checklists : undefined,
-        labelIds
+        labelIds,
+        currentAttachments
       );
     }
     await fetchNotes();
@@ -274,7 +296,7 @@ export default function NoteEditorScreen() {
           onPress={handleBack}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#F8FAFC' : '#0F172A'} />
+          <Ionicons name="arrow-back" size={24} color={colorStyle.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.headerRightActions}>
@@ -286,7 +308,7 @@ export default function NoteEditorScreen() {
             <Ionicons
               name={reminderAt ? 'notifications' : 'notifications-outline'}
               size={22}
-              color={reminderAt ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
+              color={reminderAt ? '#F59E0B' : colorStyle.textSecondary}
             />
           </TouchableOpacity>
 
@@ -298,7 +320,7 @@ export default function NoteEditorScreen() {
             <MaterialCommunityIcons
               name={isPinned ? 'pin' : 'pin-outline'}
               size={23}
-              color={isPinned ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
+              color={isPinned ? '#F59E0B' : colorStyle.textSecondary}
             />
           </TouchableOpacity>
 
@@ -310,7 +332,7 @@ export default function NoteEditorScreen() {
             <Ionicons
               name={isArchived ? 'archive' : 'archive-outline'}
               size={22}
-              color={isDark ? '#94A3B8' : '#475569'}
+              color={isArchived ? '#F59E0B' : colorStyle.textSecondary}
             />
           </TouchableOpacity>
         </View>
@@ -357,8 +379,8 @@ export default function NoteEditorScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder="Title"
-          placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-          style={[styles.titleInput, { color: isDark ? '#F8FAFC' : '#0F172A' }]}
+          placeholderTextColor={colorStyle.textSecondary}
+          style={[styles.titleInput, { color: colorStyle.textPrimary }]}
           multiline
           scrollEnabled={false}
           autoCapitalize="sentences"
@@ -376,8 +398,8 @@ export default function NoteEditorScreen() {
             value={content}
             onChangeText={setContent}
             placeholder="Note"
-            placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-            style={[styles.bodyInput, { color: isDark ? '#CBD5E1' : '#334155' }]}
+            placeholderTextColor={colorStyle.textSecondary}
+            style={[styles.bodyInput, { color: colorStyle.textPrimary }]}
             multiline
             scrollEnabled={false}
             textAlignVertical="top"
@@ -402,7 +424,7 @@ export default function NoteEditorScreen() {
             style={styles.toolBtn}
             onPress={() => setColorModalVisible(true)}
           >
-            <Ionicons name="color-palette-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+            <Ionicons name="color-palette-outline" size={22} color={colorStyle.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -431,46 +453,54 @@ export default function NoteEditorScreen() {
             <Ionicons
               name={noteType === 'checklist' ? 'list' : 'checkbox-outline'}
               size={22}
-              color={noteType === 'checklist' ? '#6366F1' : isDark ? '#CBD5E1' : '#475569'}
+              color={noteType === 'checklist' ? '#F59E0B' : colorStyle.textSecondary}
             />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage}>
-            <Ionicons name="image-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+            <Ionicons name="image-outline" size={22} color={colorStyle.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.toolBtn} onPress={() => setAudioModalVisible(true)}>
-            <Ionicons name="mic-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+            <Ionicons name="mic-outline" size={22} color={colorStyle.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.toolBtn} onPress={() => setDrawingModalVisible(true)}>
-            <MaterialCommunityIcons name="brush" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.toolBtn} onPress={() => setLabelModalVisible(true)}>
-            <Ionicons
-              name="pricetag-outline"
-              size={21}
-              color={labelIds.length > 0 ? '#6366F1' : isDark ? '#CBD5E1' : '#475569'}
-            />
+            <MaterialCommunityIcons name="brush" size={22} color={colorStyle.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Center/Right: Edited indicator and Delete button */}
+        {/* Right Info: Edited Time & Delete */}
         <View style={styles.rightBottomGroup}>
-          <Text style={[styles.editedText, { color: isDark ? '#64748B' : '#94A3B8' }]}>
+          <Text style={[styles.editedText, { color: colorStyle.textSecondary }]}>
             Edited {lastEditedTime}
           </Text>
 
           <TouchableOpacity
             style={styles.toolBtn}
-            onPress={handleDelete}
+            onPress={() => setLabelModalVisible(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            <Ionicons
+              name={labelIds.length > 0 ? 'pricetag' : 'pricetag-outline'}
+              size={20}
+              color={labelIds.length > 0 ? '#F59E0B' : colorStyle.textSecondary}
+            />
           </TouchableOpacity>
+
+          {noteId && (
+            <TouchableOpacity
+              style={styles.toolBtn}
+              onPress={handleDelete}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+
 
       {/* Modals */}
       <ColorPaletteModal

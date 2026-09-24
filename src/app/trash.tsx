@@ -108,7 +108,7 @@ export default function TrashScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}
+      style={[styles.container, { backgroundColor: isDark ? '#1F1F1F' : '#FFFFFF' }]}
       edges={['top', 'left', 'right']}
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -118,8 +118,8 @@ export default function TrashScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-            borderBottomColor: isDark ? '#334155' : '#E2E8F0',
+            backgroundColor: isDark ? '#202124' : '#FFFFFF',
+            borderBottomColor: isDark ? '#3C4043' : '#E8EAED',
           },
         ]}
       >
@@ -129,9 +129,9 @@ export default function TrashScreen() {
             onPress={() => router.back()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={24} color={isDark ? '#F8FAFC' : '#0F172A'} />
+            <Ionicons name="arrow-back" size={24} color={isDark ? '#E8EAED' : '#202124'} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+          <Text style={[styles.title, { color: isDark ? '#E8EAED' : '#202124' }]}>
             Trash
           </Text>
         </View>
@@ -163,16 +163,16 @@ export default function TrashScreen() {
             <View
               style={[
                 styles.emptyIconCircle,
-                { backgroundColor: isDark ? '#1E293B' : '#EEF2FF' },
+                { backgroundColor: isDark ? '#2D2E30' : '#FEF3C7' },
               ]}
             >
               <Ionicons
                 name="trash-outline"
                 size={48}
-                color={isDark ? '#818CF8' : '#6366F1'}
+                color={isDark ? '#FBBF24' : '#F59E0B'}
               />
             </View>
-            <Text style={[styles.emptyTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+            <Text style={[styles.emptyTitle, { color: isDark ? '#E8EAED' : '#202124' }]}>
               No notes in Trash
             </Text>
           </View>

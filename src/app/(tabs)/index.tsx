@@ -122,7 +122,7 @@ export default function HomeScreen() {
     <SafeAreaView
       style={[
         styles.container,
-        { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' },
+        { backgroundColor: isDark ? '#1F1F1F' : '#FFFFFF' },
       ]}
       edges={['top', 'left', 'right']}
     >
@@ -145,19 +145,19 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.emptyIconCircle,
-                { backgroundColor: isDark ? '#1E293B' : '#EEF2FF' },
+                { backgroundColor: isDark ? '#2D2E30' : '#FEF3C7' },
               ]}
             >
               <Ionicons
                 name="bulb-outline"
                 size={48}
-                color={isDark ? '#818CF8' : '#6366F1'}
+                color={isDark ? '#FBBF24' : '#F59E0B'}
               />
             </View>
-            <Text style={[styles.emptyTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+            <Text style={[styles.emptyTitle, { color: isDark ? '#E8EAED' : '#202124' }]}>
               Notes you add appear here
             </Text>
-            <Text style={[styles.emptySubtitle, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+            <Text style={[styles.emptySubtitle, { color: isDark ? '#9AA0A6' : '#5F6368' }]}>
               Tap the buttons below to capture ideas, checklists, and voice memos
             </Text>
           </View>
@@ -173,8 +173,8 @@ export default function HomeScreen() {
               <RefreshControl
                 refreshing={isLoading}
                 onRefresh={onRefresh}
-                tintColor="#6366F1"
-                colors={['#6366F1']}
+                tintColor="#F59E0B"
+                colors={['#F59E0B']}
               />
             }
           />
