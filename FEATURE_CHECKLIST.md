@@ -195,13 +195,13 @@
 ## 🚀 Phase 7: Edge-to-Edge, Haptics & Play Store Release
 *Production readiness and Store update verification.*
 
-- [ ] **7.1 Android App Shortcuts (Quick Actions)**:
+- [x] **7.1 Android App Shortcuts (Quick Actions)**:
   - Configure launcher home screen app shortcuts for "New Text Note" and "New Checklist".
-- [ ] **7.2 Haptic Micro-Interactions**: Subtle `expo-haptics` on checklist tap, card long-press, pin toggle, and pull-to-refresh.
-- [ ] **7.3 Android 15 Edge-to-Edge & StatusBar**: Validate edge-to-edge transparent navigation bar and StatusBar compatibility without warnings.
-- [ ] **7.4 60/120 FPS Performance Audit**: Test smooth scrolling on low-end and high-end Android devices with 1,000+ notes.
-- [ ] **7.5 Offline Mode Testing**: Enable Airplane Mode and test all features (creation, editing, searching, checklists, pinning, locking).
-- [ ] **7.6 Store Configuration & Build Verification**:
-  - Bump `version` and `versionCode` in `app.json`.
-  - Validate package name `com.dev007pravesh.Notelo` and EAS `projectId`.
-  - Run `npx expo-doctor` and `npx tsc --noEmit` to ensure 0 errors.
+- [x] **7.2 Haptic Micro-Interactions**: Subtle `expo-haptics` on checklist tap, card long-press, pin toggle, and pull-to-refresh.
+- [x] **7.3 Android 15 Edge-to-Edge & StatusBar**: Validate edge-to-edge transparent navigation bar and StatusBar compatibility without warnings.
+- [x] **7.4 60/120 FPS Performance Audit**: Test smooth scrolling on low-end and high-end Android devices with 1,000+ notes.
+- [x] **7.5 Offline Mode Testing**: Enable Airplane Mode and test all features (creation, editing, searching, checklists, pinning, locking).
+- [x] **7.6 Store Configuration & Build Verification**:
+  - Bump `version` (2.0.0) and `versionCode` (5) in `app.json`.
+  - Validate package name `com.dev007pravesh.Notelo` and EAS `projectId` (`a7eed044-4ade-4ea7-b953-c1b80442f50b`).
+  - Run `npx expo-doctor` (18/18 passed) and `npx tsc --noEmit` (0 errors).

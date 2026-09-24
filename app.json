@@ -2,7 +2,7 @@
   "expo": {
     "name": "Notelo",
     "slug": "Notelo",
-    "version": "1.0.4",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,14 +17,27 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dev007pravesh.Notelo"
+      "bundleIdentifier": "com.dev007pravesh.Notelo",
+      "buildNumber": "5",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Notelo to take photos to attach to your notes.",
+        "NSPhotoLibraryUsageDescription": "Allow Notelo to select photos to attach to your notes.",
+        "NSMicrophoneUsageDescription": "Allow Notelo to record audio for voice notes.",
+        "NSFaceIDUsageDescription": "Allow Notelo to unlock your private notes with Face ID."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.dev007pravesh.Notelo"
+      "package": "com.dev007pravesh.Notelo",
+      "versionCode": 5,
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -33,7 +46,21 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Notelo to access your photos to attach images to notes."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Notelo to access your microphone for voice memos."
+        }
+      ]
     ],
     "extra": {
       "eas": {

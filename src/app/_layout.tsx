@@ -1,9 +1,11 @@
 import { Stack, router } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { useEffect } from "react";
+import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
+import * as QuickActions from 'expo-quick-actions';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { DatabaseProvider } from '../db/DatabaseProvider';
@@ -41,6 +43,47 @@ export default function RootLayout() {
 
     return () => {
       subscription.remove();
+    };
+  }, []);
+
+  // Configure Android & iOS Home Screen Quick Actions (App Shortcuts)
+  useEffect(() => {
+    QuickActions.setItems([
+      {
+        id: 'new_text_note',
+        title: 'New Note',
+        subtitle: 'Quick text note',
+        icon: Platform.OS === 'ios' ? 'compose' : undefined,
+        params: { newType: 'text' },
+      },
+      {
+        id: 'new_checklist_note',
+        title: 'New Checklist',
+        subtitle: 'Create to-do list',
+        icon: Platform.OS === 'ios' ? 'task' : undefined,
+        params: { newType: 'checklist' },
+      },
+    ]).catch((err) => console.log('QuickActions setItems warning:', err));
+
+    if (QuickActions.initial) {
+      const action = QuickActions.initial;
+      if (action.id === 'new_text_note') {
+        router.push({ pathname: '/addNote', params: { newType: 'text' } });
+      } else if (action.id === 'new_checklist_note') {
+        router.push({ pathname: '/addNote', params: { newType: 'checklist' } });
+      }
+    }
+
+    const sub = QuickActions.addListener((action) => {
+      if (action.id === 'new_text_note') {
+        router.push({ pathname: '/addNote', params: { newType: 'text' } });
+      } else if (action.id === 'new_checklist_note') {
+        router.push({ pathname: '/addNote', params: { newType: 'checklist' } });
+      }
+    });
+
+    return () => {
+      sub.remove();
     };
   }, []);
 
