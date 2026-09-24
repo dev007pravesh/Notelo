@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TextInput,
@@ -6,291 +6,179 @@ import {
   TouchableOpacity,
   FlatList,
   Text,
-  StatusBar,
 } from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { setStatusBarStyle } from "expo-status-bar";
-import { useFocusEffect } from "@react-navigation/native";
-import { useTheme } from "../../contexts/ThemeContext";
+import { useNotesStore } from "../../store/useNotesStore";
+import { useSettingsStore } from "../../store/useSettingsStore";
+import { NoteCard } from "../../components/feed/NoteCard";
+import { NoteWithDetails } from "../../db/repositories/notesRepository";
 
-// Custom debounce hook
-const useDebounce = (value: string, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
-interface Note {
-  id: string;
-  shortTitle: string;
-  description: string;
-  addedDate: string;
-  addedTime: string;
-  lastModified?: number; // Optional for backward compatibility
-}
-
-const SearchScreen: React.FC = () => {
-  const { theme, themeMode } = useTheme();
+export default function SearchScreen() {
   const router = useRouter();
-  const [searchText, setSearchText] = useState<string>("");
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  
-  // Debounce search text with 300ms delay
-  const debouncedSearchText = useDebounce(searchText, 300);
+  const { notes, searchQuery, setSearchQuery } = useNotesStore();
+  const { theme } = useSettingsStore();
+  const isDark = theme === 'dark';
 
-  // useFocusEffect(() => {
-  //   useCallback(() => {
-  //     fetchNotes();
-  //   }, []);
-  // });
-
- 
-  useFocusEffect(
-    useCallback(()=>{
-      fetchNotes();
-    },[])
-  )
-  const fetchNotes = async () => {
-    setStatusBarStyle("light");
-    try {
-      const notesString = await AsyncStorage.getItem("addedNotes");
-      if (notesString) {
-        const parsedNotes = JSON.parse(notesString);
-        // Sort notes by lastModified timestamp (newest first)
-        // For backward compatibility, notes without lastModified will be treated as oldest
-        const sortedNotes = parsedNotes.sort((a: Note, b: Note) => {
-          const aTime = a.lastModified || 0;
-          const bTime = b.lastModified || 0;
-          return bTime - aTime;
-        });
-        setNotes(sortedNotes);
-        setFilteredNotes(sortedNotes);
-      }
-    } catch (error) {
-      console.error("Error fetching notes from AsyncStorage:", error);
-    }
-  };
+  const [inputVal, setInputVal] = useState(searchQuery);
 
   useEffect(() => {
-    // Show searching state when user is typing
-    if (searchText !== debouncedSearchText) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-    }
-  }, [searchText, debouncedSearchText]);
+    const timer = setTimeout(() => {
+      setSearchQuery(inputVal);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [inputVal, setSearchQuery]);
 
-  useEffect(() => {
-    // Filter notes based on debounced search text
-    if (debouncedSearchText) {
-      const filtered = notes.filter((note) =>
-        note.shortTitle.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-        note.description.toLowerCase().includes(debouncedSearchText.toLowerCase())
-      );
-      setFilteredNotes(filtered);
-      setIsSearching(false);
-    } else {
-      setFilteredNotes(notes);
-      setIsSearching(false);
-    }
-  }, [debouncedSearchText, notes]);
-
-  const renderItem = ({ item }: { item: Note }) => (
-    <TouchableOpacity 
-      style={[styles.itemContainer, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-      activeOpacity={0.8}
-      onPress={() => {
-        router.push({
-          pathname: "./../addNote",
-          params: {
-            id: item.id,
-            shortTitle: item.shortTitle,
-            description: item.description,
-            addedDate: item.addedDate,
-            addedTime: item.addedTime,
-            isEditing: "true",
-          },
-        });
-      }}
-    >
-      <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={2} ellipsizeMode="tail">
-        {item.shortTitle}
-      </Text>
-      <Text style={[styles.itemDescription, { color: theme.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
-        {item.description}
-      </Text>
-      <Text style={[styles.itemDate, { color: theme.textMuted }]}>
-        {item.addedDate} • {item.addedTime}
-      </Text>
-    </TouchableOpacity>
-  );
+  const filteredNotes = inputVal.trim()
+    ? notes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(inputVal.toLowerCase()) ||
+          n.content.toLowerCase().includes(inputVal.toLowerCase())
+      )
+    : [];
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' },
+      ]}
+      edges={['top']}
+    >
+      {/* Search Header */}
+      <View
+        style={[
+          styles.searchBar,
+          {
+            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+            borderColor: isDark ? '#334155' : '#E2E8F0',
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons
+            name="arrow-back"
+            size={22}
+            color={isDark ? '#CBD5E1' : '#475569'}
+          />
+        </TouchableOpacity>
 
-      {/* Search Input */}
-      <View style={[styles.searchContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Ionicons
-          name={isSearching ? "sync" : "search"}
-          size={20}
-          color={isSearching ? theme.primary : theme.textMuted}
-          style={[styles.searchIcon, isSearching && styles.searchingIcon]}
-        />
         <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
+          style={[styles.input, { color: isDark ? '#FFFFFF' : '#0F172A' }]}
           placeholder="Search your notes..."
-          placeholderTextColor={theme.textMuted}
-          value={searchText}
-          onChangeText={setSearchText}
-          autoCapitalize="none"
-          autoCorrect={false}
-          selectionColor={theme.primary}
-          underlineColorAndroid="transparent"
+          placeholderTextColor={isDark ? '#94A3B8' : '#64748B'}
+          value={inputVal}
+          onChangeText={setInputVal}
+          autoFocus
+          returnKeyType="search"
         />
+
+        {inputVal.length > 0 && (
+          <TouchableOpacity onPress={() => setInputVal('')} style={styles.clearButton}>
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color={isDark ? '#94A3B8' : '#64748B'}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* List of Notes or Empty State */}
-      {filteredNotes.length > 0 ? (
-        <FlatList
-          data={filteredNotes}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-        />
-      ) : (
-        <View style={styles.emptyStateContainer}>
-          <View style={[styles.emptyStateCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.emptyStateIcon, { backgroundColor: theme.primaryLight }]}>
+      {/* Results List */}
+      <FlatList
+        data={filteredNotes}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }: { item: NoteWithDetails }) => (
+          <NoteCard
+            note={item}
+            onPress={() => router.push({ pathname: '/addNote', params: { id: item.id } })}
+          />
+        )}
+        ListEmptyComponent={
+          inputVal.trim().length > 0 ? (
+            <View style={styles.emptyContainer}>
               <Ionicons
-                name={searchText ? "search-outline" : "document-text-outline"}
-                size={32}
-                color={theme.primary}
+                name="search-outline"
+                size={48}
+                color={isDark ? '#475569' : '#94A3B8'}
               />
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: isDark ? '#94A3B8' : '#64748B' },
+                ]}
+              >
+                No matching notes found
+              </Text>
             </View>
-            <Text style={[styles.emptyStateTitle, { color: theme.text }]}>
-              {searchText ? "No matching notes found" : "No notes yet"}
-            </Text>
-            <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>
-              {searchText 
-                ? "Try searching with different keywords or check your spelling"
-                : "Create your first note to get started"
-              }
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text
+                style={[
+                  styles.emptySubtext,
+                  { color: isDark ? '#64748B' : '#94A3B8' },
+                ]}
+              >
+                Type words, tags, or phrases to search
+              </Text>
+            </View>
+          )
+        }
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: StatusBar.currentHeight || 0,
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 10,
-    margin: 16,
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  searchIcon: {
-    marginRight: 8,
-    opacity: 0.5,
+  backButton: {
+    padding: 6,
+    marginRight: 6,
   },
-  searchingIcon: {
-    opacity: 1,
-  },
-  searchInput: {
+  input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '400',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    letterSpacing: 0.3,
+    fontSize: 16,
+    paddingVertical: 8,
   },
-  listContainer: {
-    paddingBottom: 100,
-    paddingHorizontal: 16,
+  clearButton: {
+    padding: 6,
   },
-  itemContainer: {
-    padding: 14,
-    borderRadius: 8,
-    marginVertical: 3,
-    borderWidth: 1,
+  listContent: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 40,
   },
-  itemTitle: {
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+  },
+  emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    lineHeight: 20,
-    marginBottom: 3,
-    letterSpacing: 0.4,
+    marginTop: 12,
   },
-  itemDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 4,
-    opacity: 0.8,
-    letterSpacing: 0.2,
-  },
-  itemDate: {
-    fontSize: 10,
-    fontWeight: '500',
-    letterSpacing: 0.6,
-  },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyStateCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    borderRadius: 20,
-    borderWidth: 1,
-    minWidth: 280,
-  },
-  emptyStateIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-    letterSpacing: 0.3,
-  },
-  emptyStateSubtitle: {
+  emptySubtext: {
     fontSize: 14,
-    fontWeight: '400',
-    textAlign: 'center',
-    lineHeight: 20,
-    opacity: 0.8,
-    letterSpacing: 0.2,
+    marginTop: 8,
   },
 });
-
-export default SearchScreen;

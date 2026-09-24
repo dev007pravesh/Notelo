@@ -18,24 +18,7 @@ export default function TabLayout() {
         headerShadowVisible: false,
         headerTintColor: theme.text,
         tabBarStyle: {
-          backgroundColor: theme.background,
-          borderTopWidth: 1,
-          borderTopColor: theme.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-          shadowColor: theme.primary,
-          shadowOffset: {
-            width: 0,
-            height: -1,
-          },
-          shadowOpacity: 0.08,
-          shadowRadius: 6,
-          elevation: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 1, // Hides the label text but avoids zero value
-          height: 0,
+          display: 'none',
         },
       }}
     >
