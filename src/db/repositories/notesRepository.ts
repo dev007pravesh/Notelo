@@ -57,6 +57,18 @@ export class NotesRepository {
   }
 
   /**
+   * Fetch all notes (for backup/export purposes).
+   */
+  static async getAllNotes(): Promise<NoteWithDetails[]> {
+    const rows = await db
+      .select()
+      .from(notes)
+      .orderBy(desc(notes.updatedAt));
+
+    return this.attachChecklistsAndLabels(rows);
+  }
+
+  /**
    * Fetch a single note by ID with its checklist items and labels.
    */
   static async getNoteById(id: string): Promise<NoteWithDetails | null> {
@@ -297,3 +309,6 @@ export class NotesRepository {
     }));
   }
 }
+
+export const notesRepository = NotesRepository;
+

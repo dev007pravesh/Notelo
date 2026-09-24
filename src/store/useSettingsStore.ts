@@ -14,6 +14,8 @@ interface SettingsState {
   isAppLocked: boolean;
   hasPasscode: boolean;
   autoBackupEnabled: boolean;
+  lastBackupTimestamp: number | null;
+  lastBackupSize: number | null;
   isInitialized: boolean;
 
   // Actions
@@ -26,6 +28,7 @@ interface SettingsState {
   verifyPasscode: (pin: string) => Promise<boolean>;
   removePasscode: () => Promise<void>;
   setAutoBackupEnabled: (enabled: boolean) => Promise<void>;
+  setLastBackupInfo: (timestamp: number, size: number) => Promise<void>;
   initializeSettings: () => Promise<void>;
 }
 
@@ -35,6 +38,8 @@ const STORAGE_KEYS = {
   APP_LOCK_ENABLED: 'notelo_app_lock_enabled',
   BIOMETRIC_ENABLED: 'notelo_biometric_enabled',
   AUTO_BACKUP: 'notelo_auto_backup_enabled',
+  LAST_BACKUP_TIME: 'notelo_last_backup_time',
+  LAST_BACKUP_SIZE: 'notelo_last_backup_size',
 };
 
 const SECURE_KEYS = {
@@ -49,6 +54,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   isAppLocked: false,
   hasPasscode: false,
   autoBackupEnabled: false,
+  lastBackupTimestamp: null,
+  lastBackupSize: null,
   isInitialized: false,
 
   setViewMode: async (mode: ViewMode) => {
@@ -100,15 +107,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     await AsyncStorage.setItem(STORAGE_KEYS.AUTO_BACKUP, enabled ? 'true' : 'false');
   },
 
+  setLastBackupInfo: async (timestamp: number, size: number) => {
+    set({ lastBackupTimestamp: timestamp, lastBackupSize: size });
+    await Promise.all([
+      AsyncStorage.setItem(STORAGE_KEYS.LAST_BACKUP_TIME, timestamp.toString()),
+      AsyncStorage.setItem(STORAGE_KEYS.LAST_BACKUP_SIZE, size.toString()),
+    ]);
+  },
+
   initializeSettings: async () => {
     try {
-      const [viewMode, theme, lockEnabled, biometric, autoBackup, pinHash] = await Promise.all([
+      const [viewMode, theme, lockEnabled, biometric, autoBackup, pinHash, lastTime, lastSize] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.VIEW_MODE),
         AsyncStorage.getItem(STORAGE_KEYS.THEME),
         AsyncStorage.getItem(STORAGE_KEYS.APP_LOCK_ENABLED),
         AsyncStorage.getItem(STORAGE_KEYS.BIOMETRIC_ENABLED),
         AsyncStorage.getItem(STORAGE_KEYS.AUTO_BACKUP),
         SecureStore.getItemAsync(SECURE_KEYS.PIN_HASH),
+        AsyncStorage.getItem(STORAGE_KEYS.LAST_BACKUP_TIME),
+        AsyncStorage.getItem(STORAGE_KEYS.LAST_BACKUP_SIZE),
       ]);
 
       const isLockOn = lockEnabled === 'true' && !!pinHash;
@@ -121,6 +138,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         isAppLocked: isLockOn, // Start locked if lock is enabled
         hasPasscode: !!pinHash,
         autoBackupEnabled: autoBackup === 'true',
+        lastBackupTimestamp: lastTime ? parseInt(lastTime, 10) : null,
+        lastBackupSize: lastSize ? parseInt(lastSize, 10) : null,
         isInitialized: true,
       });
     } catch (e) {

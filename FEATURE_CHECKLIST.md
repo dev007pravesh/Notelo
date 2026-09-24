@@ -175,19 +175,19 @@
 ## ☁️ Phase 6: Zero-Server WhatsApp-Style Backup Engine
 *Private, user-owned backups with local archive and Google Drive sync.*
 
-- [ ] **6.1 SQLite WAL Checkpoint & Packaging**:
+- [x] **6.1 SQLite WAL Checkpoint & Packaging**:
   - Run `PRAGMA wal_checkpoint(FULL)` to flush all pending transactions into `notelo.db`.
   - Bundle `notelo.db`, attached images, and audio notes into a compressed ZIP file.
-- [ ] **6.2 Local Backup Export & Import**:
+- [x] **6.2 Local Backup Export & Import**:
   - Export backup ZIP to phone storage or share via `expo-sharing`.
   - Import ZIP file to restore notes completely offline.
-- [ ] **6.3 Google Drive AppData Integration**:
+- [x] **6.3 Google Drive AppData Integration**:
   - Google OAuth authentication using Google REST API.
   - Upload backup ZIP to the hidden `appDataFolder` (`drive.appdata` scope) so it remains private and doesn't clutter user's Drive.
-- [ ] **6.4 Restore from Google Drive & Conflict Handling**:
+- [x] **6.4 Restore from Google Drive & Conflict Handling**:
   - Detect latest cloud backup, verify checksum, download, and replace local SQLite database with hot reload.
   - Timestamp-based Last-Write-Wins (LWW) conflict handling with option to keep both versions.
-- [ ] **6.5 Settings Backup Screen (`SettingsBackupScreen.tsx`)**:
+- [x] **6.5 Settings Backup Screen (`src/app/settings.tsx`)**:
   - Display "Last Backup: [Date & Time]", Backup Size, "Back Up Now" button, and Auto-Backup frequency toggle.
 
 ---
