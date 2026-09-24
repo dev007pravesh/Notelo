@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,647 +6,617 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
-  StatusBar,
-  BackHandler,
   Platform,
-} from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import dayjs from "dayjs";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
-import FullPageLoader from "../components/loader";
-import CustomAlert from "../components/CustomAlert";
-import showToast from "../utils/toast";
-import Toast from "react-native-toast-message";
+  Image,
+  Dimensions,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import dayjs from 'dayjs';
+import { nanoid } from 'nanoid';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useNotesStore } from '../store/useNotesStore';
+import { NotesRepository } from '../db/repositories/notesRepository';
+import { ChecklistItem } from '../db/schema';
+import { resolveKeepColor } from '../constants/keepColors';
+import { ColorPaletteModal } from '../components/editor/ColorPaletteModal';
+import { ChecklistEditor } from '../components/editor/ChecklistEditor';
+import { ImageLightboxModal } from '../components/editor/ImageLightboxModal';
+import { AudioRecorderModal } from '../components/editor/AudioRecorderModal';
+import { AudioPlayerWidget } from '../components/editor/AudioPlayerWidget';
+import { DrawingCanvasModal } from '../components/editor/DrawingCanvasModal';
+import { ReminderPickerModal } from '../components/editor/ReminderPickerModal';
+import { LabelPickerModal } from '../components/editor/LabelPickerModal';
+import { ReminderNotificationService } from '../services/reminderNotificationService';
 
-const LINE_HEIGHT = 34;
+const { width } = Dimensions.get('window');
 
-interface Note {
-  id: string;
-  shortTitle: string;
-  description: string;
-  addedDate: string;
-  addedTime: string;
-  lastModified: number;
-}
-
-const EditableMultilineComponent: React.FC = () => {
-  const { theme, themeMode } = useTheme();
-
-  const { id, shortTitle, description, addedDate, addedTime, isEditing } = useLocalSearchParams<{
-    id?: string;
-    shortTitle?: string;
-    description?: string;
-    addedDate?: string;
-    addedTime?: string;
-    isEditing?: string;
-  }>();
-
+export default function NoteEditorScreen() {
   const router = useRouter();
-  const [headerText, setHeaderText] = useState<string>("");
-  const [multilineText, setMultilineText] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [isLoad, setIsLoad] = useState<boolean>(false);
-  const [isEdited, setIsEdited] = useState<boolean>(false);
-  const [containerHeight, setContainerHeight] = useState<number>(0);
-  const [inputHeight, setInputHeight] = useState<number>(0);
-  const [showDeleteAlert, setShowDeleteAlert] = useState<boolean>(false);
-  const [showUnsavedAlert, setShowUnsavedAlert] = useState<boolean>(false);
-  const [existingNote, setExistingNote] = useState<Note | null>(null);
+  const params = useLocalSearchParams<{ id?: string; newType?: string; folderId?: string }>();
+  const noteId = params.id;
 
-  const inputRef = useRef<TextInput>(null);
-  const titleInputRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const { theme } = useSettingsStore();
+  const { saveNote, moveToTrash, fetchNotes } = useNotesStore();
+  const isDark = theme === 'dark';
 
-  // Dynamic calculations for ruled lines
-  const totalContentHeight = Math.max(containerHeight, inputHeight + LINE_HEIGHT * 6);
-  const totalLines = Math.max(25, Math.ceil(totalContentHeight / LINE_HEIGHT));
+  // State
+  const [currentId, setCurrentId] = useState<string>(noteId || `note_${Date.now()}_${nanoid(6)}`);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [noteType, setNoteType] = useState<'text' | 'checklist'>(
+    params.newType === 'checklist' ? 'checklist' : 'text'
+  );
+  const [color, setColor] = useState('#FFFFFF');
+  const [isPinned, setIsPinned] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const [reminderAt, setReminderAt] = useState<Date | null>(null);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [folderId, setFolderId] = useState<string | null>(params.folderId || null);
+  const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
+  const [imageUris, setImageUris] = useState<string[]>([]);
+  const [audioUris, setAudioUris] = useState<string[]>([]);
+  const [lastEditedTime, setLastEditedTime] = useState<string>('Just now');
 
-  // Word count calculation
-  const wordCount = useMemo(() => {
-    const trimmed = multilineText.trim();
-    if (!trimmed) return 0;
-    return trimmed.split(/\s+/).length;
-  }, [multilineText]);
+  // Modals
+  const [colorModalVisible, setColorModalVisible] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [labelModalVisible, setLabelModalVisible] = useState(false);
+  const [audioModalVisible, setAudioModalVisible] = useState(false);
+  const [drawingModalVisible, setDrawingModalVisible] = useState(false);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
-  const renderLines = () => {
-    const lines = [];
-    for (let i = 0; i < totalLines; i++) {
-      lines.push(
-        <View
-          key={i}
-          style={[
-            styles.line,
-            { borderBottomColor: theme.textMuted }
-          ]}
-        />
+  // Auto-save debounce timer ref
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoadRef = useRef(true);
+
+  // Load existing note if noteId exists
+  useEffect(() => {
+    async function loadExisting() {
+      if (!noteId) {
+        if (params.newType === 'checklist') {
+          setChecklists([
+            {
+              id: `item_${Date.now()}_1`,
+              noteId: currentId,
+              text: '',
+              isCompleted: false,
+              orderIndex: 0,
+              createdAt: new Date(),
+            },
+          ]);
+        }
+        isInitialLoadRef.current = false;
+        return;
+      }
+
+      try {
+        const existing = await NotesRepository.getNoteById(noteId);
+        if (existing) {
+          setTitle(existing.title);
+          setContent(existing.content);
+          setNoteType(existing.noteType);
+          setColor(existing.color);
+          setIsPinned(existing.isPinned);
+          setIsArchived(existing.isArchived);
+          setFolderId(existing.folderId);
+          setChecklists(existing.checklists || []);
+          setLabelIds(existing.labelIds || []);
+          if (existing.reminderAt) {
+            setReminderAt(new Date(existing.reminderAt));
+          }
+          setLastEditedTime(dayjs(existing.updatedAt).format('h:mm A'));
+        }
+      } catch (e) {
+        console.error('Error loading note:', e);
+      } finally {
+        isInitialLoadRef.current = false;
+      }
+    }
+
+    loadExisting();
+  }, [noteId]);
+
+  // Debounced Auto-Save
+  const triggerAutoSave = useCallback(() => {
+    if (isInitialLoadRef.current) return;
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      // Don't save empty notes if new
+      const hasContent =
+        title.trim().length > 0 ||
+        content.trim().length > 0 ||
+        checklists.some((c) => c.text.trim().length > 0) ||
+        imageUris.length > 0 ||
+        audioUris.length > 0;
+
+      if (!hasContent) return;
+
+      try {
+        await saveNote(
+          {
+            id: currentId,
+            folderId,
+            title: title.trim(),
+            content: content.trim(),
+            noteType,
+            color,
+            isPinned,
+            isArchived,
+            reminderAt,
+            isDeleted: false,
+          },
+          noteType === 'checklist' ? checklists : undefined,
+          labelIds
+        );
+        setLastEditedTime(dayjs().format('h:mm A'));
+      } catch (e) {
+        console.error('Auto-save error:', e);
+      }
+    }, 500);
+  }, [currentId, folderId, title, content, noteType, color, isPinned, isArchived, reminderAt, checklists, labelIds, imageUris, audioUris]);
+
+  // Trigger auto-save on state change
+  useEffect(() => {
+    triggerAutoSave();
+  }, [title, content, noteType, color, isPinned, isArchived, reminderAt, checklists, labelIds]);
+
+  const handleBack = async () => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    const hasContent =
+      title.trim().length > 0 ||
+      content.trim().length > 0 ||
+      checklists.some((c) => c.text.trim().length > 0) ||
+      imageUris.length > 0;
+
+    if (hasContent) {
+      await saveNote(
+        {
+          id: currentId,
+          folderId,
+          title: title.trim(),
+          content: content.trim(),
+          noteType,
+          color,
+          isPinned,
+          isArchived,
+          reminderAt,
+          isDeleted: false,
+        },
+        noteType === 'checklist' ? checklists : undefined,
+        labelIds
       );
     }
-    return lines;
+    await fetchNotes();
+    router.back();
   };
 
-  const saveNote = async (noteToSave: Note) => {
-    try {
-      const notesString = await AsyncStorage.getItem("addedNotes");
-      let notes: Note[] = notesString ? JSON.parse(notesString) : [];
-
-      const existingNoteIndex = notes.findIndex((note) => note.id === id);
-
-      if (existingNoteIndex !== -1) {
-        notes[existingNoteIndex] = noteToSave;
-      } else {
-        notes.push(noteToSave);
-      }
-
-      notes.sort((a, b) => b.lastModified - a.lastModified);
-      await AsyncStorage.setItem("addedNotes", JSON.stringify(notes));
-    } catch (error) {
-      console.error("Error saving note:", error);
-    }
+  const handleTogglePin = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsPinned(!isPinned);
   };
 
-  const newNote: Note = useMemo(() => ({
-    id: id || Math.random().toString(36).substring(2, 11),
-    shortTitle: headerText.trim(),
-    description: multilineText.trim(),
-    addedDate: existingNote ? existingNote.addedDate : dayjs().format("YYYY-MM-DD"),
-    addedTime: existingNote ? existingNote.addedTime : dayjs().format("hh:mm A"),
-    lastModified: Date.now(),
-  }), [id, headerText, multilineText, existingNote]);
-
-  const handleSubmit = async () => {
-    inputRef.current?.blur();
-    titleInputRef.current?.blur();
-    setIsProcessing(true);
-
-    try {
-      if (newNote.description.trim().length > 0 && newNote.shortTitle.trim().length > 0) {
-        await saveNote(newNote);
-        setIsEdited(false);
-        showToast({
-          type: 1,
-          title: "Saved",
-          text: "Note saved successfully!",
-        });
-      } else {
-        showToast({
-          type: 2,
-          title: "Incomplete Note",
-          text: "Please add both a title and some note content.",
-        });
-      }
-    } catch (error) {
-      console.error("Error saving note:", error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const toggleIsEdit = () => {
-    if (!isEdited) {
-      setIsEdited(true);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      if (id && isEditing === "true") {
-        setHeaderText(shortTitle || "");
-        setMultilineText(description || "");
-        setExistingNote({
-          id: id,
-          shortTitle: shortTitle || "",
-          description: description || "",
-          addedDate: addedDate || dayjs().format("YYYY-MM-DD"),
-          addedTime: addedTime || dayjs().format("hh:mm A"),
-          lastModified: Date.now(),
-        });
-        setIsEdited(false);
-      } else {
-        setHeaderText("");
-        setMultilineText("");
-        setExistingNote(null);
-        setIsEdited(false);
-      }
-    }, [id, shortTitle, description, addedDate, addedTime, isEditing])
-  );
-
-  const deleteNote = () => {
-    setShowDeleteAlert(true);
-  };
-
-  const convertTimeTo24Hour = (time: string): string => {
-    const [timePart, modifier] = time.split(" ");
-    let [hours, minutes] = timePart.split(":").map(Number);
-
-    if (modifier === "PM" && hours < 12) {
-      hours += 12;
-    }
-    if (modifier === "AM" && hours === 12) {
-      hours = 0;
-    }
-
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
-  };
-
-  const handleDeleteConfirm = async () => {
-    try {
-      const currentNotesString = await AsyncStorage.getItem("addedNotes");
-
-      if (currentNotesString) {
-        const currentNotes: Note[] = JSON.parse(currentNotesString);
-        const updatedNotes = currentNotes.filter((note) => note.id !== id);
-
-        const sortedNotes = updatedNotes.sort((a, b) => {
-          const dateA = new Date(`${a.addedDate}T${convertTimeTo24Hour(a.addedTime)}`);
-          const dateB = new Date(`${b.addedDate}T${convertTimeTo24Hour(b.addedTime)}`);
-          return dateB.getTime() - dateA.getTime();
-        });
-
-        await AsyncStorage.setItem("addedNotes", JSON.stringify(sortedNotes));
-      }
-    } catch (error) {
-      console.error("Error removing selected notes:", error);
-    }
-    setShowDeleteAlert(false);
-    showToast({
-      type: 1,
-      title: "Deleted",
-      text: "Note has been removed.",
-    });
+  const handleToggleArchive = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsArchived(!isArchived);
     setTimeout(() => {
-      router.push("./(tabs)");
-    }, 400);
+      router.back();
+    }, 200);
   };
 
-  const handleUnsavedAlertExit = () => {
-    setShowUnsavedAlert(false);
-    router.push("./(tabs)");
+  const handleDelete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Move to Trash', 'Are you sure you want to delete this note?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (noteId) {
+            await moveToTrash(noteId);
+          }
+          router.back();
+        },
+      },
+    ]);
   };
 
-  const handleUnsavedAlertSave = async () => {
-    setShowUnsavedAlert(false);
-    setIsLoad(true);
-    await saveNote(newNote);
-    setTimeout(() => {
-      router.push("./(tabs)");
-    }, 400);
-  };
+  const handlePickImage = async () => {
+    Haptics.selectionAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
 
-  const handleBackPress = () => {
-    if (
-      newNote.description.trim().length > 0 &&
-      newNote.shortTitle.trim().length > 0 &&
-      isEdited
-    ) {
-      setShowUnsavedAlert(true);
-    } else {
-      router.push("./(tabs)");
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        const sourceUri = result.assets[0].uri;
+        const attachmentsDir = `${FileSystem.documentDirectory}attachments/`;
+        const dirInfo = await FileSystem.getInfoAsync(attachmentsDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(attachmentsDir, { intermediates: true });
+        }
+
+        const fileName = `img_${Date.now()}.jpg`;
+        const destUri = `${attachmentsDir}${fileName}`;
+        await FileSystem.copyAsync({ from: sourceUri, to: destUri });
+
+        setImageUris((prev) => [...prev, destUri]);
+        triggerAutoSave();
+      }
+    } catch (e) {
+      console.error('Error picking image:', e);
     }
   };
 
-  useEffect(() => {
-    const backAction = () => {
-      if (
-        newNote.description.trim().length > 0 &&
-        newNote.shortTitle.trim().length > 0 &&
-        isEdited
-      ) {
-        setShowUnsavedAlert(true);
-        return true;
-      } else {
-        router.push("./(tabs)");
-        return true;
-      }
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router, newNote, isEdited]);
-
-  const displayDate = existingNote
-    ? `${existingNote.addedDate} · ${existingNote.addedTime}`
-    : `${dayjs().format("MMM D, YYYY")} · ${dayjs().format("hh:mm A")}`;
+  const colorStyle = resolveKeepColor(color, isDark);
 
   return (
-    <>
-      {isLoad ? (
-        <FullPageLoader />
-      ) : (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-          {/* Top Modern Header Bar */}
-          <View style={[styles.headerBar, { borderBottomColor: theme.border }]}>
-            {/* Back Button */}
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                }
-              ]}
-              onPress={handleBackPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={20} color={theme.text} />
-            </TouchableOpacity>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colorStyle.bg }]}
+      edges={['top', 'left', 'right', 'bottom']}
+    >
+      {/* Header Bar */}
+      <View style={styles.headerBar}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handleBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={isDark ? '#F8FAFC' : '#0F172A'} />
+        </TouchableOpacity>
 
-            {/* Note Status Badge */}
-            <View style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View 
-                style={[
-                  styles.statusDot, 
-                  { backgroundColor: isEdited ? theme.accent : theme.success }
-                ]} 
-              />
-              <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-                {isEdited ? "Unsaved changes" : (id ? "Saved" : "New Note")}
-              </Text>
-            </View>
-
-            {/* Right Actions */}
-            <View style={styles.rightActionsGroup}>
-              {/* Delete Button for existing notes */}
-              {id && (
-                <TouchableOpacity
-                  style={[
-                    styles.iconButton,
-                    styles.deleteIconButton,
-                    { backgroundColor: theme.error + "15", borderColor: theme.error + "40" }
-                  ]}
-                  disabled={isProcessing}
-                  onPress={deleteNote}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="trash-outline" size={19} color={theme.error} />
-                </TouchableOpacity>
-              )}
-
-              {/* Save / Done Button */}
-              <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  isEdited
-                    ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                    : { backgroundColor: theme.surface, borderColor: theme.border }
-                ]}
-                disabled={isProcessing}
-                onPress={handleSubmit}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={isEdited ? "checkmark" : "checkmark-done"}
-                  size={20}
-                  color={isEdited ? "#ffffff" : theme.success}
-                />
-                {isEdited && (
-                  <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Note Metadata and Title Bar */}
-          <View style={styles.titleSection}>
-            <TextInput
-              ref={titleInputRef}
-              style={[styles.titleInput, { color: theme.text }]}
-              value={headerText}
-              onChangeText={(text) => {
-                setHeaderText(text);
-                toggleIsEdit();
-              }}
-              placeholder="Note Title"
-              placeholderTextColor={theme.textMuted}
-              maxLength={80}
-              selectionColor={theme.primary}
-              underlineColorAndroid="transparent"
-              autoCorrect={false}
-              autoCapitalize="sentences"
-              returnKeyType="next"
-              onSubmitEditing={() => inputRef.current?.focus()}
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setReminderModalVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={reminderAt ? 'notifications' : 'notifications-outline'}
+              size={22}
+              color={reminderAt ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
             />
+          </TouchableOpacity>
 
-            {/* Metadata Pills */}
-            <View style={styles.metaRow}>
-              <View style={[styles.metaChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
-                <Text style={[styles.metaChipText, { color: theme.textMuted }]}>
-                  {displayDate}
-                </Text>
-              </View>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleTogglePin}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons
+              name={isPinned ? 'pin' : 'pin-outline'}
+              size={23}
+              color={isPinned ? '#6366F1' : isDark ? '#94A3B8' : '#475569'}
+            />
+          </TouchableOpacity>
 
-              <View style={[styles.metaChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <MaterialCommunityIcons name="text-box-outline" size={13} color={theme.textMuted} />
-                <Text style={[styles.metaChipText, { color: theme.textMuted }]}>
-                  {wordCount} {wordCount === 1 ? "word" : "words"}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleToggleArchive}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={isArchived ? 'archive' : 'archive-outline'}
+              size={22}
+              color={isDark ? '#94A3B8' : '#475569'}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-          {/* Lined Notebook Canvas */}
-          <View
-            style={[
-              styles.notebookCanvas,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
-            ]}
-            onLayout={(event) => {
-              const { height } = event.nativeEvent.layout;
-              setContainerHeight(height);
+      {/* Editor Body */}
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Images Attachment Gallery */}
+        {imageUris.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.imageGallery}
+          >
+            {imageUris.map((uri, index) => (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.8}
+                onPress={() => setLightboxUri(uri)}
+              >
+                <Image source={{ uri }} style={styles.imageThumb} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Audio Memos */}
+        {audioUris.map((uri, index) => (
+          <AudioPlayerWidget
+            key={index}
+            uri={uri}
+            isDark={isDark}
+            onDelete={() => setAudioUris((prev) => prev.filter((_, i) => i !== index))}
+          />
+        ))}
+
+        {/* Title Input */}
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Title"
+          placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+          style={[styles.titleInput, { color: isDark ? '#F8FAFC' : '#0F172A' }]}
+          multiline
+          scrollEnabled={false}
+          autoCapitalize="sentences"
+        />
+
+        {/* Note Body: Plain Text or Checklist */}
+        {noteType === 'checklist' ? (
+          <ChecklistEditor
+            items={checklists}
+            onChange={setChecklists}
+            isDark={isDark}
+          />
+        ) : (
+          <TextInput
+            value={content}
+            onChangeText={setContent}
+            placeholder="Note"
+            placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+            style={[styles.bodyInput, { color: isDark ? '#CBD5E1' : '#334155' }]}
+            multiline
+            scrollEnabled={false}
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+          />
+        )}
+      </ScrollView>
+
+      {/* Bottom Status & Actions Toolbar */}
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: colorStyle.bg,
+            borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          },
+        ]}
+      >
+        {/* Left Actions: Palette, Checklist Toggle, Image, Audio, Canvas */}
+        <View style={styles.bottomActionsGroup}>
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => setColorModalVisible(true)}
+          >
+            <Ionicons name="color-palette-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (noteType === 'text') {
+                setNoteType('checklist');
+                if (checklists.length === 0) {
+                  setChecklists([
+                    {
+                      id: `item_${Date.now()}`,
+                      noteId: currentId,
+                      text: content.trim(),
+                      isCompleted: false,
+                      orderIndex: 0,
+                      createdAt: new Date(),
+                    },
+                  ]);
+                }
+              } else {
+                setNoteType('text');
+              }
             }}
           >
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.scrollContainer}
-              contentContainerStyle={[
-                styles.contentContainer,
-                { minHeight: totalLines * LINE_HEIGHT },
-              ]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Ruled Notebook Lines Layer */}
-              <View style={styles.linesBackground} pointerEvents="none">
-                {renderLines()}
-              </View>
+            <Ionicons
+              name={noteType === 'checklist' ? 'list' : 'checkbox-outline'}
+              size={22}
+              color={noteType === 'checklist' ? '#6366F1' : isDark ? '#CBD5E1' : '#475569'}
+            />
+          </TouchableOpacity>
 
-              {/* Note Content Multiline Input */}
-              <TextInput
-                ref={inputRef}
-                style={[
-                  styles.multilineInput,
-                  {
-                    color: theme.text,
-                    minHeight: totalLines * LINE_HEIGHT,
-                  },
-                ]}
-                value={multilineText}
-                maxLength={10000}
-                onChangeText={(text) => {
-                  setMultilineText(text);
-                  toggleIsEdit();
-                  if (!id && headerText.length <= 3) {
-                    const firstLine = text.split("\n")[0];
-                    if (firstLine.trim().length > 0) {
-                      setHeaderText(firstLine.substring(0, 30));
-                    }
-                  }
-                }}
-                onContentSizeChange={(e) => {
-                  setInputHeight(e.nativeEvent.contentSize.height);
-                }}
-                multiline={true}
-                scrollEnabled={false}
-                textAlignVertical="top"
-                placeholder="Start writing your thoughts, ideas, or notes here..."
-                placeholderTextColor={theme.textMuted}
-                selectionColor={theme.primary}
-                underlineColorAndroid="transparent"
-                autoCorrect={false}
-                autoCapitalize="sentences"
-              />
-            </ScrollView>
+          <TouchableOpacity style={styles.toolBtn} onPress={handlePickImage}>
+            <Ionicons name="image-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+          </TouchableOpacity>
 
-            {/* Bottom Character Counter Badge */}
-            <View style={[styles.bottomStatsPill, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text
-                style={[
-                  styles.counterText,
-                  { color: theme.textMuted },
-                  multilineText.length >= 9000 && { color: theme.warning, fontWeight: "600" },
-                  multilineText.length >= 10000 && { color: theme.error, fontWeight: "700" },
-                ]}
-              >
-                {multilineText.length.toLocaleString()}/10,000
-              </Text>
-            </View>
-          </View>
-          <Toast />
-        </SafeAreaView>
-      )}
+          <TouchableOpacity style={styles.toolBtn} onPress={() => setAudioModalVisible(true)}>
+            <Ionicons name="mic-outline" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+          </TouchableOpacity>
 
-      {/* Delete Confirmation Alert */}
-      <CustomAlert
-        visible={showDeleteAlert}
-        title="Delete Note"
-        message="Are you sure you want to delete this note? This action cannot be undone."
-        onCancel={() => setShowDeleteAlert(false)}
-        onConfirm={handleDeleteConfirm}
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="delete"
+          <TouchableOpacity style={styles.toolBtn} onPress={() => setDrawingModalVisible(true)}>
+            <MaterialCommunityIcons name="brush" size={22} color={isDark ? '#CBD5E1' : '#475569'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.toolBtn} onPress={() => setLabelModalVisible(true)}>
+            <Ionicons
+              name="pricetag-outline"
+              size={21}
+              color={labelIds.length > 0 ? '#6366F1' : isDark ? '#CBD5E1' : '#475569'}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Center/Right: Edited indicator and Delete button */}
+        <View style={styles.rightBottomGroup}>
+          <Text style={[styles.editedText, { color: isDark ? '#64748B' : '#94A3B8' }]}>
+            Edited {lastEditedTime}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={handleDelete}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Modals */}
+      <ColorPaletteModal
+        visible={colorModalVisible}
+        selectedColorHex={color}
+        onSelectColor={setColor}
+        onClose={() => setColorModalVisible(false)}
       />
 
-      {/* Unsaved Changes Alert */}
-      <CustomAlert
-        visible={showUnsavedAlert}
-        title="Unsaved Changes"
-        message="You have unsaved changes. Would you like to save before leaving?"
-        onCancel={handleUnsavedAlertExit}
-        onConfirm={handleUnsavedAlertSave}
-        confirmText="Save"
-        cancelText="Discard"
-        type="warning"
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        isDark={isDark}
+        currentReminder={reminderAt}
+        onSelectReminder={async (date) => {
+          setReminderAt(date);
+          if (date) {
+            await ReminderNotificationService.scheduleNoteReminder(
+              currentId,
+              title,
+              content,
+              date
+            );
+          } else {
+            await ReminderNotificationService.cancelNoteReminder(currentId);
+          }
+        }}
+        onClose={() => setReminderModalVisible(false)}
       />
-    </>
+
+      <LabelPickerModal
+        visible={labelModalVisible}
+        isDark={isDark}
+        selectedLabelIds={labelIds}
+        onChangeLabels={setLabelIds}
+        onClose={() => setLabelModalVisible(false)}
+      />
+
+      <AudioRecorderModal
+        visible={audioModalVisible}
+        isDark={isDark}
+        onClose={() => setAudioModalVisible(false)}
+        onRecordingComplete={(uri) => setAudioUris((prev) => [...prev, uri])}
+      />
+
+      <DrawingCanvasModal
+        visible={drawingModalVisible}
+        isDark={isDark}
+        onClose={() => setDrawingModalVisible(false)}
+        onSaveDrawing={(svgData) => {
+          // Drawing saved
+        }}
+      />
+
+      <ImageLightboxModal
+        visible={!!lightboxUri}
+        imageUri={lightboxUri}
+        onClose={() => setLightboxUri(null)}
+        onDelete={() => {
+          if (lightboxUri) {
+            setImageUris((prev) => prev.filter((u) => u !== lightboxUri));
+          }
+        }}
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: StatusBar.currentHeight || 0,
   },
   headerBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   iconButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteIconButton: {
-    marginRight: 8,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 6,
+  scrollBody: {
+    flex: 1,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  rightActionsGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  saveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 40,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 6,
-  },
-  titleSection: {
+  scrollContent: {
     paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  imageGallery: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  imageThumb: {
+    width: width * 0.7,
+    height: 180,
+    borderRadius: 12,
   },
   titleInput: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: '700',
     letterSpacing: 0.2,
-    paddingVertical: 4,
-    marginBottom: 8,
+    paddingVertical: 6,
+    marginBottom: 12,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  bodyInput: {
+    fontSize: 16,
+    lineHeight: 24,
+    minHeight: 250,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+  },
+  bottomActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  toolBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightBottomGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  metaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 5,
-  },
-  metaChipText: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  notebookCanvas: {
-    flex: 1,
-    marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    position: "relative",
-  },
-  linesBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  line: {
-    height: LINE_HEIGHT,
-    borderBottomWidth: 1,
-    width: "100%",
-    opacity: 0.3,
-  },
-  multilineInput: {
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 6 : 6,
-    paddingBottom: 45,
-    fontSize: 15,
-    lineHeight: LINE_HEIGHT,
-    includeFontPadding: false,
-    textAlignVertical: "top",
-    fontWeight: "400",
-  },
-  bottomStatsPill: {
-    position: "absolute",
-    bottom: 10,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  counterText: {
-    fontSize: 11,
-    fontWeight: "500",
+  editedText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
-
-export default EditableMultilineComponent;
