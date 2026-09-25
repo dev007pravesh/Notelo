@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -22,7 +22,193 @@ interface ReorderNotesModalProps {
   isDark: boolean;
 }
 
-const ITEM_HEIGHT = 74;
+const ITEM_HEIGHT = 76;
+
+interface DraggableRowProps {
+  note: NoteWithDetails;
+  index: number;
+  sectionNotes: NoteWithDetails[];
+  isDark: boolean;
+  isCurrentlyDragging: boolean;
+  onMove: (id: string, direction: 'up' | 'down') => void;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
+}
+
+const DraggableRow: React.FC<DraggableRowProps> = ({
+  note,
+  index,
+  sectionNotes,
+  isDark,
+  isCurrentlyDragging,
+  onMove,
+  onDragStart,
+  onDragEnd,
+}) => {
+  const panY = useRef(new Animated.Value(0)).current;
+  const accumulatedDyRef = useRef(0);
+  const isFirst = index === 0;
+  const isLast = index === sectionNotes.length - 1;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+        onPanResponderGrant: () => {
+          accumulatedDyRef.current = 0;
+          onDragStart(note.id);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          panY.setValue(gestureState.dy);
+          const relativeDy = gestureState.dy - accumulatedDyRef.current;
+
+          // If dragged upwards past half an item height
+          if (relativeDy < -36 && index > 0) {
+            onMove(note.id, 'up');
+            accumulatedDyRef.current = gestureState.dy;
+            Haptics.selectionAsync();
+          } else if (relativeDy > 36 && index < sectionNotes.length - 1) {
+            onMove(note.id, 'down');
+            accumulatedDyRef.current = gestureState.dy;
+            Haptics.selectionAsync();
+          }
+        },
+        onPanResponderRelease: () => {
+          Animated.spring(panY, {
+            toValue: 0,
+            friction: 6,
+            tension: 50,
+            useNativeDriver: true,
+          }).start();
+          onDragEnd();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(panY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+          onDragEnd();
+        },
+      }),
+    [note.id, index, sectionNotes.length, onMove, onDragStart, onDragEnd]
+  );
+
+  // Determine card background
+  let cardBg = isDark ? '#2D2E30' : '#FFFFFF';
+  if (note.color && note.color !== '#FFFFFF' && note.color !== '#202124') {
+    cardBg = note.color;
+  }
+
+  return (
+    <Animated.View
+      style={[
+        styles.noteRow,
+        {
+          backgroundColor: cardBg,
+          borderColor: isCurrentlyDragging ? '#F59E0B' : isDark ? '#3C4043' : '#E2E8F0',
+          borderWidth: isCurrentlyDragging ? 2 : 1,
+          transform: [
+            { translateY: isCurrentlyDragging ? panY : 0 },
+            { scale: isCurrentlyDragging ? 1.04 : 1 },
+          ],
+          zIndex: isCurrentlyDragging ? 999 : 1,
+          elevation: isCurrentlyDragging ? 8 : 2,
+          shadowOpacity: isCurrentlyDragging ? 0.3 : 0.06,
+        },
+      ]}
+    >
+      {/* Left Indicator */}
+      <View
+        style={[
+          styles.colorStripe,
+          { backgroundColor: note.isPinned ? '#F59E0B' : isDark ? '#4B5563' : '#CBD5E1' },
+        ]}
+      />
+
+      {/* Note Content Info */}
+      <View style={styles.noteContentArea}>
+        <View style={styles.titleRow}>
+          {note.isPinned && (
+            <Ionicons name="pin" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
+          )}
+          <Text
+            style={[styles.noteTitle, { color: isDark ? '#E8EAED' : '#1E293B' }]}
+            numberOfLines={1}
+          >
+            {note.title.trim().length > 0 ? note.title : 'Untitled Note'}
+          </Text>
+        </View>
+        <Text
+          style={[styles.noteSnippet, { color: isDark ? '#9AA0A6' : '#64748B' }]}
+          numberOfLines={1}
+        >
+          {note.content.trim().length > 0
+            ? note.content.replace(/\n/g, ' ')
+            : 'No additional text'}
+        </Text>
+      </View>
+
+      {/* Right Controls: Nudge Buttons + Draggable Handle */}
+      <View style={styles.actionButtonsRow}>
+        {/* Nudge Up */}
+        <TouchableOpacity
+          style={[
+            styles.nudgeBtn,
+            {
+              opacity: isFirst ? 0.25 : 1,
+              backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
+            },
+          ]}
+          disabled={isFirst}
+          onPress={() => onMove(note.id, 'up')}
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+        >
+          <Ionicons name="chevron-up" size={17} color={isDark ? '#E8EAED' : '#334155'} />
+        </TouchableOpacity>
+
+        {/* Nudge Down */}
+        <TouchableOpacity
+          style={[
+            styles.nudgeBtn,
+            {
+              opacity: isLast ? 0.25 : 1,
+              backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
+            },
+          ]}
+          disabled={isLast}
+          onPress={() => onMove(note.id, 'down')}
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+        >
+          <Ionicons name="chevron-down" size={17} color={isDark ? '#E8EAED' : '#334155'} />
+        </TouchableOpacity>
+
+        {/* Interactive Drag Handle with PanResponder */}
+        <View
+          {...panResponder.panHandlers}
+          style={[
+            styles.dragHandle,
+            {
+              backgroundColor: isCurrentlyDragging
+                ? '#F59E0B'
+                : isDark
+                ? '#3C4043'
+                : '#F1F5F9',
+            },
+          ]}
+        >
+          <Ionicons
+            name="reorder-two"
+            size={22}
+            color={isCurrentlyDragging ? '#FFFFFF' : isDark ? '#9AA0A6' : '#64748B'}
+          />
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
 
 export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
   visible,
@@ -47,7 +233,6 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
   const otherNotes = localNotes.filter((n) => !n.isPinned);
 
   const moveItem = (id: string, direction: 'up' | 'down') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLocalNotes((prev) => {
       const idx = prev.findIndex((n) => n.id === id);
       if (idx === -1) return prev;
@@ -87,137 +272,6 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
           },
         },
       ]
-    );
-  };
-
-  const renderNoteRow = (note: NoteWithDetails, index: number, sectionArray: NoteWithDetails[]) => {
-    const isFirst = index === 0;
-    const isLast = index === sectionArray.length - 1;
-    const isCurrentlyDragging = draggingId === note.id;
-
-    // Determine card background
-    let cardBg = isDark ? '#2D2E30' : '#FFFFFF';
-    if (note.color && note.color !== '#FFFFFF' && note.color !== '#202124') {
-      cardBg = note.color;
-    }
-
-    return (
-      <View
-        key={note.id}
-        style={[
-          styles.noteRow,
-          {
-            backgroundColor: cardBg,
-            borderColor: isCurrentlyDragging
-              ? '#F59E0B'
-              : isDark
-              ? '#3C4043'
-              : '#E2E8F0',
-            borderWidth: isCurrentlyDragging ? 2 : 1,
-            transform: [{ scale: isCurrentlyDragging ? 1.03 : 1 }],
-            shadowOpacity: isCurrentlyDragging ? 0.25 : 0.05,
-          },
-        ]}
-      >
-        {/* Left Indicator */}
-        <View
-          style={[
-            styles.colorStripe,
-            { backgroundColor: note.isPinned ? '#F59E0B' : (isDark ? '#4B5563' : '#CBD5E1') },
-          ]}
-        />
-
-        {/* Note Content Info */}
-        <View style={styles.noteContentArea}>
-          <View style={styles.titleRow}>
-            {note.isPinned && (
-              <Ionicons
-                name="pin"
-                size={14}
-                color="#F59E0B"
-                style={{ marginRight: 4 }}
-              />
-            )}
-            <Text
-              style={[
-                styles.noteTitle,
-                { color: isDark ? '#E8EAED' : '#1E293B' },
-              ]}
-              numberOfLines={1}
-            >
-              {note.title.trim().length > 0 ? note.title : 'Untitled Note'}
-            </Text>
-          </View>
-          <Text
-            style={[
-              styles.noteSnippet,
-              { color: isDark ? '#9AA0A6' : '#64748B' },
-            ]}
-            numberOfLines={1}
-          >
-            {note.content.trim().length > 0
-              ? note.content.replace(/\n/g, ' ')
-              : 'No additional text'}
-          </Text>
-        </View>
-
-        {/* Nudge Buttons & Drag Handle */}
-        <View style={styles.actionButtonsRow}>
-          {/* Move Up Button */}
-          <TouchableOpacity
-            style={[
-              styles.nudgeBtn,
-              {
-                opacity: isFirst ? 0.25 : 1,
-                backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
-              },
-            ]}
-            disabled={isFirst}
-            onPress={() => moveItem(note.id, 'up')}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-          >
-            <Ionicons
-              name="chevron-up"
-              size={18}
-              color={isDark ? '#E8EAED' : '#334155'}
-            />
-          </TouchableOpacity>
-
-          {/* Move Down Button */}
-          <TouchableOpacity
-            style={[
-              styles.nudgeBtn,
-              {
-                opacity: isLast ? 0.25 : 1,
-                backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
-              },
-            ]}
-            disabled={isLast}
-            onPress={() => moveItem(note.id, 'down')}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-          >
-            <Ionicons
-              name="chevron-down"
-              size={18}
-              color={isDark ? '#E8EAED' : '#334155'}
-            />
-          </TouchableOpacity>
-
-          {/* Drag Handle Indicator */}
-          <View
-            style={[
-              styles.dragHandle,
-              { backgroundColor: isDark ? '#3C4043' : '#F1F5F9' },
-            ]}
-          >
-            <Ionicons
-              name="reorder-two"
-              size={20}
-              color={isDark ? '#9AA0A6' : '#64748B'}
-            />
-          </View>
-        </View>
-      </View>
     );
   };
 
@@ -277,7 +331,7 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
                   { color: isDark ? '#9AA0A6' : '#64748B' },
                 ]}
               >
-                Use ▲ and ▼ to order your notes
+                Hold & drag ≡ up/down, or tap ▲▼
               </Text>
             </View>
 
@@ -296,12 +350,13 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
             style={styles.scrollList}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={draggingId === null}
           >
             {/* Pinned Section */}
             {pinnedNotes.length > 0 && (
               <View style={styles.sectionContainer}>
                 <View style={styles.sectionHeaderRow}>
-                  <Ionicons name="pin" size={14} color="#F59E0B" />
+                  <Ionicons name="pin" size={13} color="#F59E0B" />
                   <Text
                     style={[
                       styles.sectionHeaderText,
@@ -311,9 +366,19 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
                     PINNED ({pinnedNotes.length})
                   </Text>
                 </View>
-                {pinnedNotes.map((note, index) =>
-                  renderNoteRow(note, index, pinnedNotes)
-                )}
+                {pinnedNotes.map((note, index) => (
+                  <DraggableRow
+                    key={note.id}
+                    note={note}
+                    index={index}
+                    sectionNotes={pinnedNotes}
+                    isDark={isDark}
+                    isCurrentlyDragging={draggingId === note.id}
+                    onMove={moveItem}
+                    onDragStart={(id) => setDraggingId(id)}
+                    onDragEnd={() => setDraggingId(null)}
+                  />
+                ))}
               </View>
             )}
 
@@ -324,7 +389,7 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
                   <View style={styles.sectionHeaderRow}>
                     <Ionicons
                       name="document-text-outline"
-                      size={14}
+                      size={13}
                       color={isDark ? '#9AA0A6' : '#64748B'}
                     />
                     <Text
@@ -337,9 +402,19 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
                     </Text>
                   </View>
                 )}
-                {otherNotes.map((note, index) =>
-                  renderNoteRow(note, index, otherNotes)
-                )}
+                {otherNotes.map((note, index) => (
+                  <DraggableRow
+                    key={note.id}
+                    note={note}
+                    index={index}
+                    sectionNotes={otherNotes}
+                    isDark={isDark}
+                    isCurrentlyDragging={draggingId === note.id}
+                    onMove={moveItem}
+                    onDragStart={(id) => setDraggingId(id)}
+                    onDragEnd={() => setDraggingId(null)}
+                  />
+                ))}
               </View>
             )}
 
@@ -471,10 +546,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingRight: 10,
     minHeight: ITEM_HEIGHT,
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   colorStripe: {
     width: 4,
@@ -512,9 +586,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dragHandle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 2,
