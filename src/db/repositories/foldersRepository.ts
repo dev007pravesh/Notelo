@@ -1,6 +1,6 @@
 import { eq, asc } from 'drizzle-orm';
 import { db } from '../db';
-import { folders, Folder, NewFolder } from '../schema';
+import { folders, Folder, NewFolder, notes } from '../schema';
 
 export class FoldersRepository {
   static async getAllFolders(): Promise<Folder[]> {
@@ -23,6 +23,7 @@ export class FoldersRepository {
   }
 
   static async deleteFolder(id: string): Promise<void> {
+    await db.update(notes).set({ folderId: null }).where(eq(notes.folderId, id));
     await db.delete(folders).where(eq(folders.id, id));
   }
 }

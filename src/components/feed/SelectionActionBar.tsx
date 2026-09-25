@@ -33,6 +33,9 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
   const selectedNotes = notes.filter((n) => selectedNoteIds.includes(n.id));
   const allPinned = selectedNotes.length > 0 && selectedNotes.every((n) => n.isPinned);
 
+  // Check if all loaded notes are selected
+  const isAllSelected = notes.length > 0 && selectedCount === notes.length;
+
   const handleTogglePin = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     bulkTogglePin(!allPinned);
@@ -41,6 +44,15 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
   const handleDelete = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     bulkMoveToTrash();
+  };
+
+  const handleToggleSelectAll = () => {
+    Haptics.selectionAsync();
+    if (isAllSelected) {
+      clearSelection();
+    } else {
+      selectAll();
+    }
   };
 
   return (
@@ -104,10 +116,14 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
 
         <TouchableOpacity
           style={styles.btn}
-          onPress={selectAll}
+          onPress={handleToggleSelectAll}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="checkmark-done" size={22} color={isDark ? '#E8EAED' : '#202124'} />
+          <MaterialCommunityIcons
+            name="format-list-checks"
+            size={24}
+            color={isAllSelected ? '#F59E0B' : (isDark ? '#E8EAED' : '#202124')}
+          />
         </TouchableOpacity>
       </View>
     </View>

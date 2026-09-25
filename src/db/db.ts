@@ -83,7 +83,9 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes(is_archived);
     CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(is_deleted);
     CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_notes_active_feed ON notes(is_archived, is_deleted, is_pinned DESC, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_checklist_note ON checklist_items(note_id);
+    CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
   `);
 
   // 3. FTS5 Virtual Table for Instant Search

@@ -13,9 +13,12 @@ interface NotesState {
   selectedNoteIds: string[];
   isSelectionMode: boolean;
   isLoading: boolean;
+  hasMoreNotes: boolean;
+  isLoadingMore: boolean;
 
   // Actions
   fetchNotes: (folderId?: string | null | 'all') => Promise<void>;
+  fetchMoreNotes: () => Promise<void>;
   fetchFoldersAndLabels: () => Promise<void>;
   setActiveFolder: (folderId: string | null | 'all') => Promise<void>;
   setSearchQuery: (query: string) => Promise<void>;
@@ -39,6 +42,8 @@ interface NotesState {
   bulkTogglePin: (pinState: boolean) => Promise<void>;
 }
 
+const PAGE_SIZE = 50;
+
 export const useNotesStore = create<NotesState>((set, get) => ({
   notes: [],
   folders: [],
@@ -48,23 +53,53 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   selectedNoteIds: [],
   isSelectionMode: false,
   isLoading: false,
+  hasMoreNotes: true,
+  isLoadingMore: false,
 
   fetchNotes: async (folderId) => {
     const targetFolder = folderId !== undefined ? folderId : get().activeFolderId;
     set({ isLoading: true });
     try {
       let result: NoteWithDetails[];
+      let hasMore = false;
       if (get().searchQuery.trim().length > 0) {
         result = await NotesRepository.searchNotes(get().searchQuery);
-      } else if (targetFolder === 'all') {
-        result = await NotesRepository.getActiveNotes(undefined);
+        hasMore = false;
       } else {
-        result = await NotesRepository.getActiveNotes(targetFolder);
+        const folderParam = targetFolder === 'all' ? undefined : targetFolder;
+        result = await NotesRepository.getActiveNotes(folderParam, PAGE_SIZE, 0);
+        hasMore = result.length === PAGE_SIZE;
       }
-      set({ notes: result, isLoading: false, activeFolderId: targetFolder });
+      set({
+        notes: result,
+        hasMoreNotes: hasMore,
+        isLoading: false,
+        activeFolderId: targetFolder,
+      });
     } catch (e) {
       console.error('Error fetching notes:', e);
       set({ isLoading: false });
+    }
+  },
+
+  fetchMoreNotes: async () => {
+    if (get().isLoadingMore || !get().hasMoreNotes || get().searchQuery.trim().length > 0) {
+      return;
+    }
+    set({ isLoadingMore: true });
+    try {
+      const targetFolder = get().activeFolderId;
+      const folderParam = targetFolder === 'all' ? undefined : targetFolder;
+      const offset = get().notes.length;
+      const nextNotes = await NotesRepository.getActiveNotes(folderParam, PAGE_SIZE, offset);
+      set((state) => ({
+        notes: [...state.notes, ...nextNotes],
+        hasMoreNotes: nextNotes.length === PAGE_SIZE,
+        isLoadingMore: false,
+      }));
+    } catch (e) {
+      console.error('Error fetching more notes:', e);
+      set({ isLoadingMore: false });
     }
   },
 

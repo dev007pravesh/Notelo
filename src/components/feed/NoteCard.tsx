@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { SafeSvgImage } from '../common/SafeSvgImage';
 import { NoteWithDetails } from '../../db/repositories/notesRepository';
 import { resolveKeepColor } from '../../constants/keepColors';
@@ -17,36 +16,62 @@ import { useNotesStore } from '../../store/useNotesStore';
 
 interface NoteCardProps {
   note: NoteWithDetails;
-  onPress: () => void;
+  onPress: (id?: string) => void;
   folderName?: string;
+  isDark?: boolean;
+  isSelected?: boolean;
+  isSelectionMode?: boolean;
+  onToggleSelection?: (id: string) => void;
+  onTogglePin?: (id: string) => void;
 }
 
-export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName }) => {
-  const { theme } = useSettingsStore();
-  const { selectedNoteIds, isSelectionMode, toggleSelection, togglePin } = useNotesStore();
+const NoteCardComponent: React.FC<NoteCardProps> = ({
+  note,
+  onPress,
+  folderName,
+  isDark: isDarkProp,
+  isSelected: isSelectedProp,
+  isSelectionMode: isSelectionModeProp,
+  onToggleSelection,
+  onTogglePin,
+}) => {
+  // If props are passed, use them directly (0 store subscription overhead for 1000 items)
+  const isDark = isDarkProp ?? (useSettingsStore.getState().theme === 'dark');
+  const isSelected = isSelectedProp ?? false;
+  const isSelectionMode = isSelectionModeProp ?? false;
 
-  const isDark = theme === 'dark';
-  const isSelected = selectedNoteIds.includes(note.id);
   const colorStyle = resolveKeepColor(note.color, isDark);
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    toggleSelection(note.id);
+    if (onToggleSelection) {
+      onToggleSelection(note.id);
+    } else {
+      useNotesStore.getState().toggleSelection(note.id);
+    }
   };
 
   const handleCardPress = () => {
     if (isSelectionMode) {
       Haptics.selectionAsync();
-      toggleSelection(note.id);
+      if (onToggleSelection) {
+        onToggleSelection(note.id);
+      } else {
+        useNotesStore.getState().toggleSelection(note.id);
+      }
     } else {
-      onPress();
+      onPress(note.id);
     }
   };
 
   const handlePinPress = (e: any) => {
     e.stopPropagation?.();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    togglePin(note.id);
+    if (onTogglePin) {
+      onTogglePin(note.id);
+    } else {
+      useNotesStore.getState().togglePin(note.id);
+    }
   };
 
   const hasChecklists = note.checklists && note.checklists.length > 0;
@@ -58,11 +83,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
   const hasAudio = note.attachments?.some((a) => a.mimeType.startsWith('audio'));
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(200)}
-      layout={Layout.springify().damping(18)}
-      style={styles.wrapper}
-    >
+    <View style={styles.wrapper}>
       <TouchableOpacity
         activeOpacity={0.82}
         onPress={handleCardPress}
@@ -72,10 +93,26 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
           {
             backgroundColor: colorStyle.bg,
             borderColor: isSelected ? '#F59E0B' : colorStyle.border,
-            borderWidth: isSelected ? 2 : 1,
+            borderWidth: isSelected ? 2.5 : 1,
           },
         ]}
       >
+        {/* Subtle Selected Highlight Overlay (Clean border + tint selection) */}
+        {isSelected && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(245, 158, 11, 0.12)'
+                  : 'rgba(245, 158, 11, 0.08)',
+                zIndex: 2,
+              },
+            ]}
+          />
+        )}
+
         {/* Cover Image Thumbnail (Signature Keep Feature) */}
         {coverImage && !note.isLocked && (
           coverImage.localUri.endsWith('.svg') ? (
@@ -89,13 +126,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
               resizeMode="cover"
             />
           )
-        )}
-
-        {/* Selection Checkbox Badge */}
-        {isSelectionMode && (
-          <View style={[styles.selectBadge, isSelected && styles.selectBadgeActive]}>
-            {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
-          </View>
         )}
 
         {/* Pin Button / Indicator */}
@@ -144,7 +174,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
                 <View
                   style={[
                     styles.checklistContainer,
-                    note.title.trim().length === 0 && { paddingRight: 22 },
+                    note.title.trim().length === 0 && { paddingRight: 24 },
                   ]}
                 >
                   {visibleChecklists.map((item) => (
@@ -181,7 +211,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
                   style={[
                     styles.content,
                     { color: colorStyle.textSecondary },
-                    note.title.trim().length === 0 && { paddingRight: 22 },
+                    note.title.trim().length === 0 && { paddingRight: 24 },
                   ]}
                 >
                   {note.content}
@@ -253,7 +283,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onPress, folderName })
           )}
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -281,24 +311,6 @@ const styles = StyleSheet.create({
   contentPadding: {
     padding: 13,
   },
-  selectBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#94A3B8',
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  selectBadgeActive: {
-    borderColor: '#F59E0B',
-    backgroundColor: '#F59E0B',
-  },
   pinButton: {
     position: 'absolute',
     top: 8,
@@ -312,7 +324,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     letterSpacing: 0.1,
     marginBottom: 6,
-    paddingRight: 22, // Space for pin button
+    paddingRight: 26, // Space for pin button or selection badge
   },
   content: {
     fontSize: 13.5,
@@ -397,3 +409,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
 });
+
+export const NoteCard = React.memo(NoteCardComponent);
+

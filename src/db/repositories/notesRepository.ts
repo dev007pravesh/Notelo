@@ -25,7 +25,11 @@ export class NotesRepository {
   /**
    * Fetch all active (non-archived, non-deleted) notes, optionally filtered by folder.
    */
-  static async getActiveNotes(folderId?: string | null): Promise<NoteWithDetails[]> {
+  static async getActiveNotes(
+    folderId?: string | null,
+    limit?: number,
+    offset: number = 0
+  ): Promise<NoteWithDetails[]> {
     const conditions = [eq(notes.isArchived, false), eq(notes.isDeleted, false)];
     if (folderId !== undefined) {
       if (folderId === null) {
@@ -35,11 +39,15 @@ export class NotesRepository {
       }
     }
 
-    const rows = await db
+    const query = db
       .select()
       .from(notes)
       .where(and(...conditions))
       .orderBy(desc(notes.isPinned), desc(notes.updatedAt));
+
+    const rows = limit !== undefined
+      ? await query.limit(limit).offset(offset)
+      : await query;
 
     return this.attachChecklistsAndLabels(rows);
   }

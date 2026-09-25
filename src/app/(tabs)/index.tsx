@@ -6,6 +6,7 @@ import {
   RefreshControl,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -32,13 +33,22 @@ export default function HomeScreen() {
     folders,
     activeFolderId,
     isSelectionMode,
+    selectedNoteIds,
     isLoading,
+    hasMoreNotes,
+    isLoadingMore,
     fetchNotes,
+    fetchMoreNotes,
     fetchFoldersAndLabels,
+    toggleSelection,
+    togglePin,
   } = useNotesStore();
 
   const isDark = theme === 'dark';
   const [drawerVisible, setDrawerVisible] = useState(false);
+
+  // Set lookup for O(1) selection check without re-rendering non-selected cards
+  const selectedNoteIdSet = useMemo(() => new Set(selectedNoteIds), [selectedNoteIds]);
 
   useEffect(() => {
     fetchNotes();
@@ -87,12 +97,41 @@ export default function HomeScreen() {
     return items;
   }, [pinnedNotes, otherNotes]);
 
-  const handleNotePress = (note: NoteWithDetails) => {
+  // Progressive windowing: Only feed active window to FlashList so layout engine never chokes
+  const [displayLimit, setDisplayLimit] = useState(40);
+
+  useEffect(() => {
+    setDisplayLimit(40);
+  }, [activeFolderId]);
+
+  const visibleFeedItems = useMemo(() => {
+    return feedItems.slice(0, displayLimit);
+  }, [feedItems, displayLimit]);
+
+  const handleEndReached = useCallback(() => {
+    if (displayLimit < feedItems.length) {
+      setDisplayLimit((prev) => Math.min(prev + 40, feedItems.length));
+    }
+    if (hasMoreNotes && !isLoadingMore) {
+      fetchMoreNotes();
+    }
+  }, [displayLimit, feedItems.length, hasMoreNotes, isLoadingMore, fetchMoreNotes]);
+
+  const handleNotePress = useCallback((noteId?: string) => {
+    if (!noteId) return;
     router.push({
       pathname: '/addNote',
-      params: { id: note.id },
+      params: { id: noteId },
     });
-  };
+  }, [router]);
+
+  const handleToggleSelection = useCallback((noteId: string) => {
+    toggleSelection(noteId);
+  }, [toggleSelection]);
+
+  const handleTogglePin = useCallback((noteId: string) => {
+    togglePin(noteId);
+  }, [togglePin]);
 
   const handleCreateNote = (type: 'text' | 'checklist' | 'drawing' | 'audio' | 'image') => {
     router.push({
@@ -104,26 +143,34 @@ export default function HomeScreen() {
     });
   };
 
-  const renderItem = ({ item }: { item: FeedItem }) => {
-    if (item.type === 'header') {
-      return (
-        <View style={styles.sectionHeaderContainer}>
-          <Text style={[styles.sectionHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
-            {item.title}
-          </Text>
-        </View>
-      );
-    }
+  const renderItem = useCallback(
+    ({ item }: { item: FeedItem }) => {
+      if (item.type === 'header') {
+        return (
+          <View style={styles.sectionHeaderContainer}>
+            <Text style={[styles.sectionHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              {item.title}
+            </Text>
+          </View>
+        );
+      }
 
-    const folderName = item.note.folderId ? folderMap.get(item.note.folderId) : undefined;
-    return (
-      <NoteCard
-        note={item.note}
-        onPress={() => handleNotePress(item.note)}
-        folderName={folderName}
-      />
-    );
-  };
+      const folderName = item.note.folderId ? folderMap.get(item.note.folderId) : undefined;
+      return (
+        <NoteCard
+          note={item.note}
+          isDark={isDark}
+          isSelected={selectedNoteIdSet.has(item.note.id)}
+          isSelectionMode={isSelectionMode}
+          onPress={handleNotePress}
+          onToggleSelection={handleToggleSelection}
+          onTogglePin={handleTogglePin}
+          folderName={folderName}
+        />
+      );
+    },
+    [isDark, folderMap, selectedNoteIdSet, isSelectionMode, handleNotePress, handleToggleSelection, handleTogglePin]
+  );
 
   return (
     <SafeAreaView
@@ -170,12 +217,23 @@ export default function HomeScreen() {
           </View>
         ) : (
           <FlashList
-            data={feedItems}
+            data={visibleFeedItems}
             keyExtractor={(item) => item.id}
+            getItemType={(item) => item.type}
             renderItem={renderItem}
+            drawDistance={Platform.OS === 'android' ? 600 : 350}
             numColumns={viewMode === 'grid' ? 2 : 1}
             masonry={viewMode === 'grid'}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.5}
             contentContainerStyle={styles.listContent}
+            ListFooterComponent={
+              isLoadingMore ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                </View>
+              ) : null
+            }
             refreshControl={
               <RefreshControl
                 refreshing={isLoading}
@@ -259,5 +317,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
