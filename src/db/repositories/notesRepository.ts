@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, like, or } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, like, or } from 'drizzle-orm';
 import { db, expoDb } from '../db';
 import {
   notes,
@@ -43,7 +43,7 @@ export class NotesRepository {
       .select()
       .from(notes)
       .where(and(...conditions))
-      .orderBy(desc(notes.isPinned), desc(notes.updatedAt));
+      .orderBy(desc(notes.isPinned), asc(notes.orderIndex), desc(notes.updatedAt));
 
     const rows = limit !== undefined
       ? await query.limit(limit).offset(offset)
@@ -70,7 +70,7 @@ export class NotesRepository {
       .select()
       .from(notes)
       .where(and(...conditions))
-      .orderBy(desc(notes.isPinned), desc(notes.updatedAt));
+      .orderBy(desc(notes.isPinned), asc(notes.orderIndex), desc(notes.updatedAt));
 
     const rows = limit !== undefined
       ? await query.limit(limit).offset(offset)
@@ -439,6 +439,30 @@ export class NotesRepository {
       labels: labelsByNoteId.get(n.id) || [],
       attachments: attachmentsByNoteId.get(n.id) || [],
     }));
+  }
+
+  /**
+   * Update the order_index for a list of note IDs in a single atomic transaction.
+   */
+  static async updateNotesOrder(orderedIds: string[]): Promise<void> {
+    if (!orderedIds.length) return;
+    expoDb.withTransactionSync(() => {
+      const stmt = expoDb.prepareSync('UPDATE notes SET order_index = $order WHERE id = $id');
+      try {
+        orderedIds.forEach((id, index) => {
+          stmt.executeSync({ $order: index, $id: id });
+        });
+      } finally {
+        stmt.finalizeSync();
+      }
+    });
+  }
+
+  /**
+   * Reset all notes to default order (order_index = 0) so they sort by last updated.
+   */
+  static async resetNotesOrder(): Promise<void> {
+    await db.update(notes).set({ orderIndex: 0 });
   }
 }
 

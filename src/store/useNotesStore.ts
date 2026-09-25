@@ -45,6 +45,9 @@ interface NotesState {
   bulkSetColor: (color: string) => Promise<void>;
   bulkSetReminder: (date: Date | null) => Promise<void>;
   bulkAddLabel: (labelId: string) => Promise<void>;
+  reorderNotes: (orderedNotes: NoteWithDetails[]) => Promise<void>;
+  moveNote: (id: string, direction: 'up' | 'down') => Promise<void>;
+  resetNoteOrder: () => Promise<void>;
 }
 
 const PAGE_SIZE = 50;
@@ -282,5 +285,46 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     const ids = get().selectedNoteIds;
     await NotesRepository.bulkAddLabel(ids, labelId);
     await get().fetchNotes();
+  },
+
+  reorderNotes: async (orderedNotes: NoteWithDetails[]) => {
+    set({ notes: orderedNotes });
+    try {
+      await NotesRepository.updateNotesOrder(orderedNotes.map((n) => n.id));
+    } catch (e) {
+      console.error('Error persisting note order:', e);
+    }
+  },
+
+  moveNote: async (id: string, direction: 'up' | 'down') => {
+    const currentNotes = [...get().notes];
+    const index = currentNotes.findIndex((n) => n.id === id);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentNotes.length) return;
+
+    // Boundary check: keep pinned notes within pinned section and vice-versa
+    if (currentNotes[index].isPinned !== currentNotes[targetIndex].isPinned) return;
+
+    const [movedNote] = currentNotes.splice(index, 1);
+    currentNotes.splice(targetIndex, 0, movedNote);
+
+    set({ notes: currentNotes });
+
+    try {
+      await NotesRepository.updateNotesOrder(currentNotes.map((n) => n.id));
+    } catch (e) {
+      console.error('Error persisting moved note:', e);
+    }
+  },
+
+  resetNoteOrder: async () => {
+    try {
+      await NotesRepository.resetNotesOrder();
+      await get().fetchNotes();
+    } catch (e) {
+      console.error('Error resetting note order:', e);
+    }
   },
 }));

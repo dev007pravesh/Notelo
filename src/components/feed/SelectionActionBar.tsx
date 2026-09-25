@@ -17,9 +17,13 @@ import { FolderPickerModal } from '../editor/FolderPickerModal';
 
 interface SelectionActionBarProps {
   onMoveToFolderPress?: () => void;
+  onRearrangePress?: () => void;
 }
 
-export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveToFolderPress }) => {
+export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({
+  onMoveToFolderPress,
+  onRearrangePress,
+}) => {
   const { theme } = useSettingsStore();
   const {
     selectedNoteIds,
@@ -32,6 +36,7 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
     bulkSetColor,
     bulkSetReminder,
     bulkAddLabel,
+    moveNote,
   } = useNotesStore();
 
   const isDark = theme === 'dark';
@@ -145,6 +150,58 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
         >
           <Ionicons name="pricetag-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
         </TouchableOpacity>
+
+        {/* Single Note Nudge Controls */}
+        {selectedCount === 1 && (
+          <>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                moveNote(selectedNoteIds[0], 'up');
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons
+                name="chevron-up"
+                size={20}
+                color={isDark ? '#E8EAED' : '#202124'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                moveNote(selectedNoteIds[0], 'down');
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={isDark ? '#E8EAED' : '#202124'}
+              />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Full Rearrange Button */}
+        {onRearrangePress && (
+          <TouchableOpacity
+            style={styles.btn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onRearrangePress();
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons
+              name="swap-vertical-outline"
+              size={20}
+              color="#F59E0B"
+            />
+          </TouchableOpacity>
+        )}
 
         {/* Bulk Delete */}
         <TouchableOpacity

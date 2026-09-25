@@ -44,6 +44,7 @@ export async function initDatabase(): Promise<void> {
       deleted_at INTEGER,
       is_locked INTEGER NOT NULL DEFAULT 0,
       reminder_at INTEGER,
+      order_index INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
       updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
     );
@@ -82,13 +83,21 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_notes_pinned ON notes(is_pinned);
     CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes(is_archived);
     CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(is_deleted);
+    CREATE INDEX IF NOT EXISTS idx_notes_order ON notes(order_index);
     CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at);
-    CREATE INDEX IF NOT EXISTS idx_notes_active_feed ON notes(is_archived, is_deleted, is_pinned DESC, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notes_active_feed ON notes(is_archived, is_deleted, is_pinned DESC, order_index ASC, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_checklist_note ON checklist_items(note_id);
     CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
     CREATE INDEX IF NOT EXISTS idx_note_labels_label ON note_labels(label_id);
     CREATE INDEX IF NOT EXISTS idx_note_labels_note ON note_labels(note_id);
   `);
+
+  // Run dynamic schema migrations on existing database if columns are missing
+  try {
+    expoDb.execSync(`ALTER TABLE notes ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0;`);
+  } catch {
+    // Column already exists, safe to ignore
+  }
 
   // 3. FTS5 Virtual Table for Instant Search
   try {

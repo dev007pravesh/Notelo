@@ -25,6 +25,7 @@ export const notes = sqliteTable('notes', {
   deletedAt: integer('deleted_at', { mode: 'timestamp' }),
   isLocked: integer('is_locked', { mode: 'boolean' }).notNull().default(false),
   reminderAt: integer('reminder_at', { mode: 'timestamp' }),
+  orderIndex: integer('order_index').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(strftime('%s', 'now'))`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(strftime('%s', 'now'))`),
 });
