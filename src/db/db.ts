@@ -5,6 +5,13 @@ import * as schema from './schema';
 // Open native SQLite database synchronously (Expo SDK 53)
 export const expoDb = SQLite.openDatabaseSync('notelo.db');
 
+// Ensure newly added columns exist immediately on existing databases
+try {
+  expoDb.execSync(`ALTER TABLE notes ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0;`);
+} catch {
+  // Column already exists, safe to ignore
+}
+
 // Initialize Drizzle ORM
 export const db = drizzle(expoDb, { schema });
 
@@ -78,25 +85,32 @@ export async function initDatabase(): Promise<void> {
       file_size INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
     );
-
-    CREATE INDEX IF NOT EXISTS idx_notes_folder ON notes(folder_id);
-    CREATE INDEX IF NOT EXISTS idx_notes_pinned ON notes(is_pinned);
-    CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes(is_archived);
-    CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(is_deleted);
-    CREATE INDEX IF NOT EXISTS idx_notes_order ON notes(order_index);
-    CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at);
-    CREATE INDEX IF NOT EXISTS idx_notes_active_feed ON notes(is_archived, is_deleted, is_pinned DESC, order_index ASC, updated_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_checklist_note ON checklist_items(note_id);
-    CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
-    CREATE INDEX IF NOT EXISTS idx_note_labels_label ON note_labels(label_id);
-    CREATE INDEX IF NOT EXISTS idx_note_labels_note ON note_labels(note_id);
   `);
 
-  // Run dynamic schema migrations on existing database if columns are missing
+  // 3. Dynamic Column Migrations (MUST run BEFORE creating indexes on new columns!)
   try {
     expoDb.execSync(`ALTER TABLE notes ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0;`);
   } catch {
     // Column already exists, safe to ignore
+  }
+
+  // 4. Create Indexes
+  try {
+    expoDb.execSync(`
+      CREATE INDEX IF NOT EXISTS idx_notes_folder ON notes(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_notes_pinned ON notes(is_pinned);
+      CREATE INDEX IF NOT EXISTS idx_notes_archived ON notes(is_archived);
+      CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(is_deleted);
+      CREATE INDEX IF NOT EXISTS idx_notes_order ON notes(order_index);
+      CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_notes_active_feed ON notes(is_archived, is_deleted, is_pinned DESC, order_index ASC, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_checklist_note ON checklist_items(note_id);
+      CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
+      CREATE INDEX IF NOT EXISTS idx_note_labels_label ON note_labels(label_id);
+      CREATE INDEX IF NOT EXISTS idx_note_labels_note ON note_labels(note_id);
+    `);
+  } catch (indexError) {
+    console.warn('Index creation warning:', indexError);
   }
 
   // 3. FTS5 Virtual Table for Instant Search
