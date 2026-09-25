@@ -151,40 +151,6 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({
           <Ionicons name="pricetag-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
         </TouchableOpacity>
 
-        {/* Single Note Nudge Controls */}
-        {selectedCount === 1 && (
-          <>
-            <TouchableOpacity
-              style={styles.btn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                moveNote(selectedNoteIds[0], 'up');
-              }}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Ionicons
-                name="chevron-up"
-                size={20}
-                color={isDark ? '#E8EAED' : '#202124'}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.btn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                moveNote(selectedNoteIds[0], 'down');
-              }}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Ionicons
-                name="chevron-down"
-                size={20}
-                color={isDark ? '#E8EAED' : '#202124'}
-              />
-            </TouchableOpacity>
-          </>
-        )}
-
         {/* Full Rearrange Button */}
         {onRearrangePress && (
           <TouchableOpacity

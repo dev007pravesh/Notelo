@@ -22,7 +22,7 @@ interface ReorderNotesModalProps {
   isDark: boolean;
 }
 
-const ITEM_HEIGHT = 76;
+const ITEM_HEIGHT = 74;
 
 interface DraggableRowProps {
   note: NoteWithDetails;
@@ -47,14 +47,14 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
 }) => {
   const panY = useRef(new Animated.Value(0)).current;
   const accumulatedDyRef = useRef(0);
-  const isFirst = index === 0;
-  const isLast = index === sectionNotes.length - 1;
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 3,
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => Math.abs(gestureState.dy) > 3,
         onPanResponderGrant: () => {
           accumulatedDyRef.current = 0;
           onDragStart(note.id);
@@ -64,12 +64,12 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
           panY.setValue(gestureState.dy);
           const relativeDy = gestureState.dy - accumulatedDyRef.current;
 
-          // If dragged upwards past half an item height
-          if (relativeDy < -36 && index > 0) {
+          // If dragged upwards past half a card height
+          if (relativeDy < -34 && index > 0) {
             onMove(note.id, 'up');
             accumulatedDyRef.current = gestureState.dy;
             Haptics.selectionAsync();
-          } else if (relativeDy > 36 && index < sectionNotes.length - 1) {
+          } else if (relativeDy > 34 && index < sectionNotes.length - 1) {
             onMove(note.id, 'down');
             accumulatedDyRef.current = gestureState.dy;
             Haptics.selectionAsync();
@@ -78,7 +78,7 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
         onPanResponderRelease: () => {
           Animated.spring(panY, {
             toValue: 0,
-            friction: 6,
+            friction: 7,
             tension: 50,
             useNativeDriver: true,
           }).start();
@@ -104,6 +104,7 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
 
   return (
     <Animated.View
+      {...panResponder.panHandlers}
       style={[
         styles.noteRow,
         {
@@ -115,12 +116,12 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
             { scale: isCurrentlyDragging ? 1.04 : 1 },
           ],
           zIndex: isCurrentlyDragging ? 999 : 1,
-          elevation: isCurrentlyDragging ? 8 : 2,
-          shadowOpacity: isCurrentlyDragging ? 0.3 : 0.06,
+          elevation: isCurrentlyDragging ? 10 : 2,
+          shadowOpacity: isCurrentlyDragging ? 0.35 : 0.05,
         },
       ]}
     >
-      {/* Left Indicator */}
+      {/* Left Accent Stripe */}
       <View
         style={[
           styles.colorStripe,
@@ -151,60 +152,13 @@ const DraggableRow: React.FC<DraggableRowProps> = ({
         </Text>
       </View>
 
-      {/* Right Controls: Nudge Buttons + Draggable Handle */}
-      <View style={styles.actionButtonsRow}>
-        {/* Nudge Up */}
-        <TouchableOpacity
-          style={[
-            styles.nudgeBtn,
-            {
-              opacity: isFirst ? 0.25 : 1,
-              backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
-            },
-          ]}
-          disabled={isFirst}
-          onPress={() => onMove(note.id, 'up')}
-          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-        >
-          <Ionicons name="chevron-up" size={17} color={isDark ? '#E8EAED' : '#334155'} />
-        </TouchableOpacity>
-
-        {/* Nudge Down */}
-        <TouchableOpacity
-          style={[
-            styles.nudgeBtn,
-            {
-              opacity: isLast ? 0.25 : 1,
-              backgroundColor: isDark ? '#3C4043' : '#F1F5F9',
-            },
-          ]}
-          disabled={isLast}
-          onPress={() => onMove(note.id, 'down')}
-          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-        >
-          <Ionicons name="chevron-down" size={17} color={isDark ? '#E8EAED' : '#334155'} />
-        </TouchableOpacity>
-
-        {/* Interactive Drag Handle with PanResponder */}
-        <View
-          {...panResponder.panHandlers}
-          style={[
-            styles.dragHandle,
-            {
-              backgroundColor: isCurrentlyDragging
-                ? '#F59E0B'
-                : isDark
-                ? '#3C4043'
-                : '#F1F5F9',
-            },
-          ]}
-        >
-          <Ionicons
-            name="reorder-two"
-            size={22}
-            color={isCurrentlyDragging ? '#FFFFFF' : isDark ? '#9AA0A6' : '#64748B'}
-          />
-        </View>
+      {/* Subtle Drag Handle Icon */}
+      <View style={styles.dragIconWrapper}>
+        <Ionicons
+          name="reorder-two"
+          size={24}
+          color={isCurrentlyDragging ? '#F59E0B' : isDark ? '#6B7280' : '#94A3B8'}
+        />
       </View>
     </Animated.View>
   );
@@ -217,11 +171,9 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
 }) => {
   const { notes, reorderNotes, resetNoteOrder } = useNotesStore();
 
-  // Local working copy of notes
   const [localNotes, setLocalNotes] = useState<NoteWithDetails[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  // Sync with store when modal opens
   useEffect(() => {
     if (visible) {
       setLocalNotes([...notes]);
@@ -331,7 +283,7 @@ export const ReorderNotesModal: React.FC<ReorderNotesModalProps> = ({
                   { color: isDark ? '#9AA0A6' : '#64748B' },
                 ]}
               >
-                Hold & drag ≡ up/down, or tap ▲▼
+                Hold any card and drag up or down
               </Text>
             </View>
 
@@ -543,8 +495,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     marginBottom: 8,
-    paddingVertical: 10,
-    paddingRight: 10,
+    paddingVertical: 12,
+    paddingRight: 14,
     minHeight: ITEM_HEIGHT,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -552,7 +504,7 @@ const styles = StyleSheet.create({
   },
   colorStripe: {
     width: 4,
-    height: '70%',
+    height: '75%',
     borderRadius: 2,
     marginHorizontal: 10,
   },
@@ -573,25 +525,10 @@ const styles = StyleSheet.create({
   noteSnippet: {
     fontSize: 12,
   },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nudgeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  dragIconWrapper: {
+    paddingLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  dragHandle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 2,
   },
   emptyContainer: {
     alignItems: 'center',
