@@ -10,19 +10,24 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useNotesStore } from '../../store/useNotesStore';
 import { FoldersRepository } from '../../db/repositories/foldersRepository';
-import { Folder } from '../../db/schema';
+import { LabelsRepository } from '../../db/repositories/labelsRepository';
+import { Folder, Label } from '../../db/schema';
 
 interface FolderDrawerModalProps {
   visible: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
 }
+
+type ActionTarget =
+  | { type: 'folder'; data: Folder }
+  | { type: 'label'; data: Label };
 
 export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
   visible,
@@ -31,65 +36,114 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
 }) => {
   const router = useRouter();
   const { theme } = useSettingsStore();
-  const { folders, activeFolderId, setActiveFolder, fetchFoldersAndLabels } = useNotesStore();
+  const {
+    folders,
+    labels,
+    activeFolderId,
+    activeLabelId,
+    setActiveFolder,
+    setActiveLabel,
+    fetchFoldersAndLabels,
+  } = useNotesStore();
 
   const isDark = theme === 'dark';
+
+  // Inline folder creation
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
-  // Long press folder action states
-  const [actionFolder, setActionFolder] = useState<Folder | null>(null);
+  // Inline label creation
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+
+  // Long press folder / label action states
+  const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
   const [renameText, setRenameText] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
-  const handleSelectFolder = async (folderId: string | null | 'all') => {
+  const handleSelectAllNotes = async () => {
+    Haptics.selectionAsync();
+    await setActiveFolder('all');
+    onClose();
+  };
+
+  const handleSelectFolder = async (folderId: string) => {
     Haptics.selectionAsync();
     await setActiveFolder(folderId);
     onClose();
   };
 
+  const handleSelectLabel = async (labelId: string) => {
+    Haptics.selectionAsync();
+    await setActiveLabel(labelId);
+    onClose();
+  };
+
   const handleLongPressFolder = (folder: Folder) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setActionFolder(folder);
+    setActionTarget({ type: 'folder', data: folder });
     setRenameText(folder.name);
     setIsRenaming(false);
     setIsConfirmingDelete(false);
   };
 
+  const handleLongPressLabel = (label: Label) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActionTarget({ type: 'label', data: label });
+    setRenameText(label.name);
+    setIsRenaming(false);
+    setIsConfirmingDelete(false);
+  };
+
   const handleCloseActionModal = () => {
-    setActionFolder(null);
+    setActionTarget(null);
     setIsRenaming(false);
     setIsConfirmingDelete(false);
   };
 
   const handleSaveRename = async () => {
-    if (!actionFolder || !renameText.trim()) return;
+    if (!actionTarget || !renameText.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await FoldersRepository.updateFolder(actionFolder.id, {
-        name: renameText.trim(),
-      });
-      await fetchFoldersAndLabels();
-      handleCloseActionModal();
-    } catch (e) {
-      console.error('Error renaming folder:', e);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!actionFolder) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    try {
-      const isCurrentActive = activeFolderId === actionFolder.id;
-      await FoldersRepository.deleteFolder(actionFolder.id);
-      if (isCurrentActive) {
-        await setActiveFolder('all');
+      if (actionTarget.type === 'folder') {
+        await FoldersRepository.updateFolder(actionTarget.data.id, {
+          name: renameText.trim(),
+        });
+      } else {
+        await LabelsRepository.updateLabel(
+          actionTarget.data.id,
+          renameText.trim().replace(/^#/, '')
+        );
       }
       await fetchFoldersAndLabels();
       handleCloseActionModal();
     } catch (e) {
-      console.error('Error deleting folder:', e);
+      console.error('Error renaming:', e);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!actionTarget) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    try {
+      if (actionTarget.type === 'folder') {
+        const isCurrentActive = activeFolderId === actionTarget.data.id;
+        await FoldersRepository.deleteFolder(actionTarget.data.id);
+        if (isCurrentActive) {
+          await setActiveFolder('all');
+        }
+      } else {
+        const isCurrentActive = activeLabelId === actionTarget.data.id;
+        await LabelsRepository.deleteLabel(actionTarget.data.id);
+        if (isCurrentActive) {
+          await setActiveLabel(null);
+        }
+      }
+      await fetchFoldersAndLabels();
+      handleCloseActionModal();
+    } catch (e) {
+      console.error('Error deleting:', e);
     }
   };
 
@@ -111,6 +165,25 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
       console.error('Error creating folder:', e);
     }
   };
+
+  const handleCreateLabel = async () => {
+    const cleanName = newLabelName.trim().replace(/^#/, '');
+    if (!cleanName) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await LabelsRepository.createLabel({
+        id: `label_${Date.now()}`,
+        name: cleanName,
+      });
+      setNewLabelName('');
+      setIsCreatingLabel(false);
+      await fetchFoldersAndLabels();
+    } catch (e) {
+      console.error('Error creating label:', e);
+    }
+  };
+
+  const isAllNotesActive = activeFolderId === 'all' && !activeLabelId;
 
   return (
     <Modal
@@ -148,24 +221,24 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.navItem,
-                activeFolderId === 'all' && [
+                isAllNotesActive && [
                   styles.navItemActive,
                   { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
                 ],
               ]}
-              onPress={() => handleSelectFolder('all')}
+              onPress={handleSelectAllNotes}
             >
               <Ionicons
                 name="bulb-outline"
                 size={22}
-                color={activeFolderId === 'all' ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
+                color={isAllNotesActive ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
               />
               <Text
                 style={[
                   styles.navItemText,
                   {
-                    color: activeFolderId === 'all' ? (isDark ? '#FBBF24' : '#D97706') : isDark ? '#E8EAED' : '#202124',
-                    fontWeight: activeFolderId === 'all' ? '700' : '500',
+                    color: isAllNotesActive ? (isDark ? '#FBBF24' : '#D97706') : isDark ? '#E8EAED' : '#202124',
+                    fontWeight: isAllNotesActive ? '700' : '500',
                   },
                 ]}
               >
@@ -220,7 +293,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
 
             {/* Folders List */}
             {folders.map((folder) => {
-              const isSelected = activeFolderId === folder.id;
+              const isSelected = activeFolderId === folder.id && !activeLabelId;
               return (
                 <TouchableOpacity
                   key={folder.id}
@@ -251,6 +324,89 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                     ]}
                   >
                     {folder.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Labels Section Header */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: isDark ? '#9AA0A6' : '#70757A' }]}>
+                LABELS
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsCreatingLabel(!isCreatingLabel)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={isCreatingLabel ? 'close' : 'add'}
+                  size={20}
+                  color={isDark ? '#9AA0A6' : '#5F6368'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* New Label Inline Input */}
+            {isCreatingLabel && (
+              <View style={styles.newFolderInputRow}>
+                <TextInput
+                  value={newLabelName}
+                  onChangeText={setNewLabelName}
+                  placeholder="New label name"
+                  placeholderTextColor={isDark ? '#9AA0A6' : '#70757A'}
+                  style={[
+                    styles.newFolderInput,
+                    {
+                      color: isDark ? '#E8EAED' : '#202124',
+                      borderColor: isDark ? '#3C4043' : '#E0E0E0',
+                      backgroundColor: isDark ? '#2D2E30' : '#F1F3F4',
+                    },
+                  ]}
+                  autoFocus
+                  onSubmitEditing={handleCreateLabel}
+                />
+                <TouchableOpacity
+                  style={[styles.createFolderBtn, { backgroundColor: '#F59E0B' }]}
+                  onPress={handleCreateLabel}
+                >
+                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Labels List */}
+            {labels.map((label) => {
+              const isSelected = activeLabelId === label.id;
+              return (
+                <TouchableOpacity
+                  key={label.id}
+                  style={[
+                    styles.navItem,
+                    isSelected && [
+                      styles.navItemActive,
+                      { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
+                    ],
+                  ]}
+                  onPress={() => handleSelectLabel(label.id)}
+                  onLongPress={() => handleLongPressLabel(label)}
+                  delayLongPress={350}
+                >
+                  <Ionicons
+                    name="pricetag-outline"
+                    size={20}
+                    color={isSelected ? '#F59E0B' : isDark ? '#9AA0A6' : '#5F6368'}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.navItemText,
+                      {
+                        color: isSelected ? (isDark ? '#FBBF24' : '#D97706') : isDark ? '#E8EAED' : '#202124',
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    #{label.name}
                   </Text>
                 </TouchableOpacity>
               );
@@ -303,7 +459,7 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
         </View>
 
         {/* Action Dialog Overlay (Rename / Delete) */}
-        {actionFolder && (
+        {actionTarget && (
           <View style={styles.actionModalOverlay}>
             <TouchableWithoutFeedback onPress={handleCloseActionModal}>
               <View style={styles.actionBackdrop} />
@@ -321,14 +477,18 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
               {/* Header */}
               <View style={styles.actionHeader}>
                 <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' }]}>
-                  <Ionicons name="folder-outline" size={20} color="#F59E0B" />
+                  <Ionicons
+                    name={actionTarget.type === 'folder' ? 'folder-outline' : 'pricetag-outline'}
+                    size={20}
+                    color="#F59E0B"
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={1} style={[styles.actionTitle, { color: isDark ? '#E8EAED' : '#202124' }]}>
-                    {actionFolder.name}
+                    {actionTarget.type === 'folder' ? actionTarget.data.name : `#${actionTarget.data.name}`}
                   </Text>
                   <Text style={[styles.actionSubtitle, { color: isDark ? '#9AA0A6' : '#5F6368' }]}>
-                    Folder options
+                    {actionTarget.type === 'folder' ? 'Folder options' : 'Label options'}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={handleCloseActionModal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -340,12 +500,12 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 /* Inline Rename Form */
                 <View style={styles.renameForm}>
                   <Text style={[styles.inputLabel, { color: isDark ? '#9AA0A6' : '#5F6368' }]}>
-                    Rename folder
+                    Rename {actionTarget.type}
                   </Text>
                   <TextInput
                     value={renameText}
                     onChangeText={setRenameText}
-                    placeholder="Folder name"
+                    placeholder={`${actionTarget.type === 'folder' ? 'Folder' : 'Label'} name`}
                     placeholderTextColor={isDark ? '#9AA0A6' : '#70757A'}
                     style={[
                       styles.renameInput,
@@ -382,10 +542,12 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                 /* Delete Confirmation Form */
                 <View style={styles.confirmDeleteContainer}>
                   <Text style={[styles.confirmDeleteTitle, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
-                    Delete this folder?
+                    Delete this {actionTarget.type}?
                   </Text>
                   <Text style={[styles.confirmDeleteMessage, { color: isDark ? '#D1D5DB' : '#4B5563' }]}>
-                    Notes inside will remain safe and accessible in All Notes.
+                    {actionTarget.type === 'folder'
+                      ? 'Notes inside will remain safe and accessible in All Notes.'
+                      : 'This will remove the label from all notes. Notes themselves will not be deleted.'}
                   </Text>
                   <View style={styles.actionButtonsRow}>
                     <TouchableOpacity
@@ -418,10 +580,10 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.actionOptionText, { color: isDark ? '#E8EAED' : '#202124' }]}>
-                        Rename folder
+                        Rename {actionTarget.type}
                       </Text>
                       <Text style={[styles.actionOptionHint, { color: isDark ? '#9AA0A6' : '#6B7280' }]}>
-                        Change the name of this folder
+                        Change the name of this {actionTarget.type}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={isDark ? '#5F6368' : '#9CA3AF'} />
@@ -436,10 +598,10 @@ export const FolderDrawerModal: React.FC<FolderDrawerModalProps> = ({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.actionOptionText, { color: '#EF4444' }]}>
-                        Delete folder
+                        Delete {actionTarget.type}
                       </Text>
                       <Text style={[styles.actionOptionHint, { color: isDark ? '#9AA0A6' : '#6B7280' }]}>
-                        Remove folder (keeps notes safe)
+                        Remove {actionTarget.type} (notes stay safe)
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={isDark ? '#5F6368' : '#9CA3AF'} />

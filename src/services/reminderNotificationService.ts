@@ -37,6 +37,17 @@ function loadNotificationsModule(): any {
         priority: _Notifications.AndroidNotificationPriority?.HIGH,
       }),
     });
+
+    if (Platform.OS === 'android') {
+      _Notifications.setNotificationChannelAsync('reminders', {
+        name: 'Note Reminders',
+        importance: _Notifications.AndroidImportance?.MAX ?? 5,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#F59E0B',
+        sound: 'default',
+        enableVibrate: true,
+      }).catch((err: any) => console.log('Error setting notification channel:', err));
+    }
   } catch (e) {
     console.log('expo-notifications not available — running in Expo Go mode');
     _Notifications = null;
@@ -98,12 +109,16 @@ export class ReminderNotificationService {
           title: title.trim() || 'Reminder',
           body: body.trim() || 'You have a note reminder in Notelo',
           data: { noteId },
-          sound: true,
+          sound: 'default',
         },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: triggerSeconds,
-        },
+        trigger: Platform.OS === 'android'
+          ? {
+              channelId: 'reminders',
+              seconds: triggerSeconds,
+            }
+          : {
+              seconds: triggerSeconds,
+            },
       });
 
       return notificationId;

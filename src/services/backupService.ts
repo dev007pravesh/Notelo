@@ -154,14 +154,37 @@ export class BackupService {
   }
 
   /**
+   * Get the most recent local backup file if one exists.
+   */
+  static async getLatestLocalBackupPath(): Promise<string | null> {
+    try {
+      const dirInfo = await FileSystem.getInfoAsync(this.BACKUPS_DIR);
+      if (!dirInfo.exists) return null;
+      const files = await FileSystem.readDirectoryAsync(this.BACKUPS_DIR);
+      const zipFiles = files.filter((f) => f.endsWith('.zip'));
+      if (zipFiles.length === 0) return null;
+      zipFiles.sort().reverse();
+      return `${this.BACKUPS_DIR}${zipFiles[0]}`;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Export the backup file via native share sheet (AirDrop, WhatsApp, Drive, Files, etc.).
    */
   static async exportBackup(specificPath?: string): Promise<boolean> {
     try {
       let targetPath = specificPath;
       if (!targetPath) {
-        const result = await this.createLocalBackup();
-        targetPath = result.backupPath;
+        // Reuse latest existing backup if present to avoid redundant slow compression
+        const latest = await this.getLatestLocalBackupPath();
+        if (latest) {
+          targetPath = latest;
+        } else {
+          const result = await this.createLocalBackup();
+          targetPath = result.backupPath;
+        }
       }
 
       const isAvailable = await Sharing.isAvailableAsync();

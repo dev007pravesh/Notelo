@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
   RefreshControl,
   Platform,
   StatusBar,
@@ -31,7 +32,9 @@ export default function HomeScreen() {
   const {
     notes,
     folders,
+    labels,
     activeFolderId,
+    activeLabelId,
     isSelectionMode,
     selectedNoteIds,
     isLoading,
@@ -40,6 +43,7 @@ export default function HomeScreen() {
     fetchNotes,
     fetchMoreNotes,
     fetchFoldersAndLabels,
+    setActiveFolder,
     toggleSelection,
     togglePin,
   } = useNotesStore();
@@ -102,7 +106,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     setDisplayLimit(40);
-  }, [activeFolderId]);
+  }, [activeFolderId, activeLabelId]);
 
   const visibleFeedItems = useMemo(() => {
     return feedItems.slice(0, displayLimit);
@@ -190,6 +194,49 @@ export default function HomeScreen() {
           onMenuPress={() => setDrawerVisible(true)}
           onSettingsPress={() => router.push('/settings' as any)}
         />
+      )}
+
+      {/* Active Filter Pill (Folder or Label) */}
+      {!isSelectionMode && (activeFolderId !== 'all' || activeLabelId !== null) && (
+        <View style={styles.activeFilterBar}>
+          <View
+            style={[
+              styles.activeFilterPill,
+              {
+                backgroundColor: isDark ? '#2D2E30' : '#FEF3C7',
+                borderColor: isDark ? '#3C4043' : '#FDE68A',
+              },
+            ]}
+          >
+            <Ionicons
+              name={activeLabelId ? 'pricetag' : 'folder'}
+              size={13}
+              color="#F59E0B"
+            />
+            <Text
+              style={[
+                styles.activeFilterText,
+                { color: isDark ? '#FBBF24' : '#D97706' },
+              ]}
+              numberOfLines={1}
+            >
+              {activeLabelId
+                ? `#${labels.find((l) => l.id === activeLabelId)?.name || 'Label'}`
+                : folders.find((f) => f.id === activeFolderId)?.name || 'Folder'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setActiveFolder('all')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.activeFilterClearBtn}
+            >
+              <Ionicons
+                name="close-circle"
+                size={16}
+                color={isDark ? '#FBBF24' : '#D97706'}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* Main Feed: Masonry FlashList */}
@@ -322,5 +369,28 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  activeFilterBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  activeFilterText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    maxWidth: 200,
+  },
+  activeFilterClearBtn: {
+    marginLeft: 2,
   },
 });

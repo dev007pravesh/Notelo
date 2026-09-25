@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useNotesStore } from '../../store/useNotesStore';
+import { ColorPaletteModal } from '../editor/ColorPaletteModal';
+import { ReminderPickerModal } from '../editor/ReminderPickerModal';
+import { LabelPickerModal } from '../editor/LabelPickerModal';
+import { FolderPickerModal } from '../editor/FolderPickerModal';
 
 interface SelectionActionBarProps {
   onMoveToFolderPress?: () => void;
@@ -24,10 +28,19 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
     selectAll,
     bulkTogglePin,
     bulkMoveToTrash,
+    bulkMoveToFolder,
+    bulkSetColor,
+    bulkSetReminder,
+    bulkAddLabel,
   } = useNotesStore();
 
   const isDark = theme === 'dark';
   const selectedCount = selectedNoteIds.length;
+
+  const [colorModalVisible, setColorModalVisible] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [labelModalVisible, setLabelModalVisible] = useState(false);
+  const [folderModalVisible, setFolderModalVisible] = useState(false);
 
   // Check if all selected are pinned
   const selectedNotes = notes.filter((n) => selectedNoteIds.includes(n.id));
@@ -82,50 +95,128 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({ onMoveTo
         </Text>
       </View>
 
-      {/* Right: Actions */}
+      {/* Right: Bulk Actions */}
       <View style={styles.rightGroup}>
+        {/* Bulk Pin */}
         <TouchableOpacity
           style={styles.btn}
           onPress={handleTogglePin}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <MaterialCommunityIcons
             name={allPinned ? 'pin-off-outline' : 'pin-outline'}
-            size={22}
+            size={20}
             color={isDark ? '#E8EAED' : '#202124'}
           />
         </TouchableOpacity>
 
-        {onMoveToFolderPress && (
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={onMoveToFolderPress}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="folder-outline" size={22} color={isDark ? '#E8EAED' : '#202124'} />
-          </TouchableOpacity>
-        )}
+        {/* Bulk Reminder */}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => setReminderModalVisible(true)}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="notifications-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
+        </TouchableOpacity>
 
+        {/* Bulk Color */}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => setColorModalVisible(true)}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="color-palette-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
+        </TouchableOpacity>
+
+        {/* Bulk Folder */}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => setFolderModalVisible(true)}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="folder-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
+        </TouchableOpacity>
+
+        {/* Bulk Label */}
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={() => setLabelModalVisible(true)}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="pricetag-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
+        </TouchableOpacity>
+
+        {/* Bulk Delete */}
         <TouchableOpacity
           style={styles.btn}
           onPress={handleDelete}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          <Ionicons name="trash-outline" size={22} color="#EF4444" />
+          <Ionicons name="trash-outline" size={19} color="#EF4444" />
         </TouchableOpacity>
 
+        {/* Select All */}
         <TouchableOpacity
           style={styles.btn}
           onPress={handleToggleSelectAll}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <MaterialCommunityIcons
             name="format-list-checks"
-            size={24}
+            size={22}
             color={isAllSelected ? '#F59E0B' : (isDark ? '#E8EAED' : '#202124')}
           />
         </TouchableOpacity>
       </View>
+
+      {/* Bulk Color Modal */}
+      <ColorPaletteModal
+        visible={colorModalVisible}
+        selectedColorHex="#FFFFFF"
+        onSelectColor={async (col) => {
+          await bulkSetColor(col);
+          setColorModalVisible(false);
+        }}
+        onClose={() => setColorModalVisible(false)}
+      />
+
+      {/* Bulk Reminder Modal */}
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        isDark={isDark}
+        currentReminder={null}
+        onSelectReminder={async (date) => {
+          await bulkSetReminder(date);
+          setReminderModalVisible(false);
+        }}
+        onClose={() => setReminderModalVisible(false)}
+      />
+
+      {/* Bulk Folder Modal */}
+      <FolderPickerModal
+        visible={folderModalVisible}
+        isDark={isDark}
+        selectedFolderId={null}
+        onChangeFolder={async (fId) => {
+          await bulkMoveToFolder(fId);
+          setFolderModalVisible(false);
+        }}
+        onClose={() => setFolderModalVisible(false)}
+      />
+
+      {/* Bulk Label Modal */}
+      <LabelPickerModal
+        visible={labelModalVisible}
+        isDark={isDark}
+        selectedLabelIds={[]}
+        onChangeLabels={async (newLabelIds) => {
+          for (const lId of newLabelIds) {
+            await bulkAddLabel(lId);
+          }
+          setLabelModalVisible(false);
+        }}
+        onClose={() => setLabelModalVisible(false)}
+      />
     </View>
   );
 };

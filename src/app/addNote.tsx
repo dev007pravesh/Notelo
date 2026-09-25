@@ -32,9 +32,25 @@ import { AudioPlayerWidget } from '../components/editor/AudioPlayerWidget';
 import { DrawingCanvasModal, DrawingPath } from '../components/editor/DrawingCanvasModal';
 import { ReminderPickerModal } from '../components/editor/ReminderPickerModal';
 import { LabelPickerModal } from '../components/editor/LabelPickerModal';
+import { FolderPickerModal } from '../components/editor/FolderPickerModal';
 import { ReminderNotificationService } from '../services/reminderNotificationService';
 
 const { width } = Dimensions.get('window');
+
+const formatEditedTime = (date?: Date | number | string | null) => {
+  if (!date) return 'Just now';
+  const d = dayjs(date);
+  const now = dayjs();
+  if (d.isSame(now, 'day')) {
+    return d.format('h:mm A');
+  } else if (d.isSame(now.subtract(1, 'day'), 'day')) {
+    return `Yesterday, ${d.format('h:mm A')}`;
+  } else if (d.isSame(now, 'year')) {
+    return d.format('MMM D, h:mm A');
+  } else {
+    return d.format('MMM D, YYYY');
+  }
+};
 
 export default function NoteEditorScreen() {
   const router = useRouter();
@@ -42,7 +58,7 @@ export default function NoteEditorScreen() {
   const noteId = params.id;
 
   const { theme } = useSettingsStore();
-  const { saveNote, moveToTrash, fetchNotes } = useNotesStore();
+  const { folders, labels, saveNote, moveToTrash, fetchNotes } = useNotesStore();
   const isDark = theme === 'dark';
 
   // State
@@ -69,15 +85,17 @@ export default function NoteEditorScreen() {
   const [colorModalVisible, setColorModalVisible] = useState(false);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [labelModalVisible, setLabelModalVisible] = useState(false);
+  const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [audioModalVisible, setAudioModalVisible] = useState(false);
   const [drawingModalVisible, setDrawingModalVisible] = useState(false);
   const [editingDrawingUri, setEditingDrawingUri] = useState<string | null>(null);
   const [editingDrawingPaths, setEditingDrawingPaths] = useState<DrawingPath[]>([]);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
 
-  // Auto-save debounce timer ref
+  // Auto-save debounce timer ref and snapshot to prevent false saves on load
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+  const initialSnapshotRef = useRef<string>('');
 
   const handleStartEditDrawing = async (uri: string) => {
     try {
@@ -155,7 +173,21 @@ export default function NoteEditorScreen() {
           if (existing.reminderAt) {
             setReminderAt(new Date(existing.reminderAt));
           }
-          setLastEditedTime(dayjs(existing.updatedAt).format('h:mm A'));
+          setLastEditedTime(formatEditedTime(existing.updatedAt));
+
+          // Save baseline snapshot so opening note does not trigger false auto-save
+          initialSnapshotRef.current = JSON.stringify({
+            title: existing.title.trim(),
+            content: existing.content.trim(),
+            noteType: existing.noteType,
+            color: existing.color,
+            isPinned: existing.isPinned,
+            isArchived: existing.isArchived,
+            folderId: existing.folderId,
+            reminderAt: existing.reminderAt ? new Date(existing.reminderAt).getTime() : null,
+            labelIds: [...(existing.labelIds || [])].sort(),
+            checklists: existing.checklists || [],
+          });
         }
       } catch (e) {
         console.error('Error loading note:', e);
@@ -184,6 +216,24 @@ export default function NoteEditorScreen() {
 
       if (!hasContent) return;
 
+      const currentSnapshot = JSON.stringify({
+        title: title.trim(),
+        content: content.trim(),
+        noteType,
+        color,
+        isPinned,
+        isArchived,
+        folderId,
+        reminderAt: reminderAt ? reminderAt.getTime() : null,
+        labelIds: [...labelIds].sort(),
+        checklists,
+      });
+
+      // Avoid false save if note hasn't changed from loaded state
+      if (currentSnapshot === initialSnapshotRef.current) {
+        return;
+      }
+
       const currentAttachments = [
         ...imageUris.map((u) => ({
           localUri: u,
@@ -210,7 +260,8 @@ export default function NoteEditorScreen() {
           labelIds,
           currentAttachments
         );
-        setLastEditedTime(dayjs().format('h:mm A'));
+        initialSnapshotRef.current = currentSnapshot;
+        setLastEditedTime(formatEditedTime(new Date()));
       } catch (e) {
         console.error('Auto-save error:', e);
       }
@@ -450,6 +501,83 @@ export default function NoteEditorScreen() {
             autoCapitalize="sentences"
           />
         )}
+
+        {/* Chips Area: Folder, Labels & Reminder (Google Keep Signature Style) */}
+        {(folderId || labelIds.length > 0 || reminderAt) && (
+          <View style={styles.chipsContainer}>
+            {/* Folder Chip */}
+            {folders.find((f) => f.id === folderId) && (
+              <TouchableOpacity
+                style={[
+                  styles.metaChip,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  },
+                ]}
+                onPress={() => setFolderModalVisible(true)}
+              >
+                <Ionicons name="folder-outline" size={13} color="#F59E0B" />
+                <Text style={[styles.metaChipText, { color: colorStyle.textPrimary }]}>
+                  {folders.find((f) => f.id === folderId)?.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setFolderId(null)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="close-circle" size={14} color={colorStyle.textSecondary} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            )}
+
+            {/* Reminder Chip */}
+            {reminderAt && (
+              <TouchableOpacity
+                style={[
+                  styles.metaChip,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  },
+                ]}
+                onPress={() => setReminderModalVisible(true)}
+              >
+                <Ionicons name="alarm-outline" size={13} color="#F59E0B" />
+                <Text style={[styles.metaChipText, { color: colorStyle.textPrimary }]}>
+                  {dayjs(reminderAt).format('MMM D, h:mm A')}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setReminderAt(null)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="close-circle" size={14} color={colorStyle.textSecondary} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            )}
+
+            {/* Label Chips */}
+            {labels.filter((l) => labelIds.includes(l.id)).map((lbl) => (
+              <TouchableOpacity
+                key={lbl.id}
+                style={[
+                  styles.metaChip,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  },
+                ]}
+                onPress={() => setLabelModalVisible(true)}
+              >
+                <Text style={[styles.metaChipText, { color: colorStyle.textPrimary }]}>
+                  #{lbl.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setLabelIds((prev) => prev.filter((id) => id !== lbl.id))}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="close-circle" size={14} color={colorStyle.textSecondary} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom Status & Actions Toolbar */}
@@ -511,6 +639,18 @@ export default function NoteEditorScreen() {
 
           <TouchableOpacity style={styles.toolBtn} onPress={() => setDrawingModalVisible(true)}>
             <MaterialCommunityIcons name="brush" size={22} color={colorStyle.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => setFolderModalVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={folderId ? 'folder' : 'folder-outline'}
+              size={21}
+              color={folderId ? '#F59E0B' : colorStyle.textSecondary}
+            />
           </TouchableOpacity>
         </View>
 
@@ -580,6 +720,14 @@ export default function NoteEditorScreen() {
         selectedLabelIds={labelIds}
         onChangeLabels={setLabelIds}
         onClose={() => setLabelModalVisible(false)}
+      />
+
+      <FolderPickerModal
+        visible={folderModalVisible}
+        isDark={isDark}
+        selectedFolderId={folderId}
+        onChangeFolder={setFolderId}
+        onClose={() => setFolderModalVisible(false)}
       />
 
       <AudioRecorderModal
@@ -728,5 +876,24 @@ const styles = StyleSheet.create({
   editedText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  metaChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
   },
 });

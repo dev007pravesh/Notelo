@@ -41,6 +41,7 @@ export default function SettingsScreen() {
 
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinStep, setPinStep] = useState<'create' | 'confirm'>('create');
@@ -107,13 +108,18 @@ export default function SettingsScreen() {
     }
   };
 
-  // Handle Export Backup
+  // Handle Export Backup (Non-blocking with instant visual spinner)
   const handleExportBackup = async () => {
     try {
+      setIsExporting(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await BackupService.exportBackup();
     } catch (e: any) {
-      Alert.alert('Export Failed', e?.message || 'Could not export backup archive');
+      if (e?.message && !e.message.includes('User did not share')) {
+        Alert.alert('Export Failed', e?.message || 'Could not export backup archive');
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -328,7 +334,7 @@ export default function SettingsScreen() {
               isBackingUp && { opacity: 0.7 },
             ]}
             onPress={handleBackupNow}
-            disabled={isBackingUp || isRestoring || isDownloading}
+            disabled={isBackingUp || isRestoring || isDownloading || isExporting}
           >
             {isBackingUp ? (
               <ActivityIndicator color={tColors.primaryBtnText} size="small" />
@@ -340,55 +346,60 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Action: Save / Download to Notelo folder */}
-          <TouchableOpacity
-            style={[
-              styles.downloadButton,
-              {
-                backgroundColor: tColors.downloadBtnBg,
-                borderColor: tColors.downloadBtnBorder,
-              },
-              isDownloading && { opacity: 0.7 },
-            ]}
-            onPress={() => handleDownloadBackup()}
-            disabled={isBackingUp || isRestoring || isDownloading}
-          >
-            {isDownloading ? (
-              <ActivityIndicator color={tColors.downloadBtnText} size="small" />
-            ) : (
-              <>
-                <Feather name="folder" size={17} color={tColors.downloadBtnText} />
-                <Text style={[styles.downloadButtonText, { color: tColors.downloadBtnText }]}>
-                  Save to Downloads / Notelo
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
           <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
 
-          {/* Secondary Actions */}
-          <View style={styles.buttonRow}>
+          {/* Unified Utility Actions: Save to Device, Share Archive, Restore */}
+          <View style={styles.utilityRow}>
+            {/* Save to Files / Downloads */}
             <TouchableOpacity
-              style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
-              onPress={handleExportBackup}
-              disabled={isBackingUp || isRestoring || isDownloading}
+              style={[styles.utilityBtn, { backgroundColor: tColors.secondaryBtnBg }]}
+              onPress={() => handleDownloadBackup()}
+              disabled={isBackingUp || isRestoring || isDownloading || isExporting}
             >
-              <Feather name="share-2" size={17} color={tColors.secondaryBtnText} />
-              <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Share ZIP</Text>
+              {isDownloading ? (
+                <ActivityIndicator color={tColors.secondaryBtnText} size="small" />
+              ) : (
+                <>
+                  <Feather name="download" size={15} color={tColors.secondaryBtnText} />
+                  <Text style={[styles.utilityBtnText, { color: tColors.secondaryBtnText }]}>
+                    Save File
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
 
+            {/* Share Archive (Export) */}
             <TouchableOpacity
-              style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
+              style={[styles.utilityBtn, { backgroundColor: tColors.secondaryBtnBg }]}
+              onPress={handleExportBackup}
+              disabled={isBackingUp || isRestoring || isDownloading || isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator color={tColors.secondaryBtnText} size="small" />
+              ) : (
+                <>
+                  <Feather name="share-2" size={15} color={tColors.secondaryBtnText} />
+                  <Text style={[styles.utilityBtnText, { color: tColors.secondaryBtnText }]}>
+                    Share ZIP
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Restore Archive */}
+            <TouchableOpacity
+              style={[styles.utilityBtn, { backgroundColor: tColors.secondaryBtnBg }]}
               onPress={handleRestore}
-              disabled={isBackingUp || isRestoring || isDownloading}
+              disabled={isBackingUp || isRestoring || isDownloading || isExporting}
             >
               {isRestoring ? (
                 <ActivityIndicator color={tColors.secondaryBtnText} size="small" />
               ) : (
                 <>
-                  <Feather name="upload" size={17} color={tColors.secondaryBtnText} />
-                  <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Restore ZIP</Text>
+                  <Feather name="upload" size={15} color={tColors.secondaryBtnText} />
+                  <Text style={[styles.utilityBtnText, { color: tColors.secondaryBtnText }]}>
+                    Restore
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -801,38 +812,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#202124',
   },
-  downloadButton: {
+  utilityRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
     gap: 8,
-    marginTop: 10,
   },
-  downloadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  secondaryButton: {
+  utilityBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2D2E30',
-    paddingVertical: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 6,
     borderRadius: 10,
-    gap: 6,
+    gap: 5,
   },
-  secondaryButtonText: {
-    fontSize: 13,
+  utilityBtnText: {
+    fontSize: 12.5,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   row: {
     flexDirection: 'row',

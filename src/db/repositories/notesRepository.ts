@@ -53,6 +53,33 @@ export class NotesRepository {
   }
 
   /**
+   * Fetch active notes filtered by a specific label.
+   */
+  static async getActiveNotesByLabel(
+    labelId: string,
+    limit?: number,
+    offset: number = 0
+  ): Promise<NoteWithDetails[]> {
+    const conditions = [
+      eq(notes.isArchived, false),
+      eq(notes.isDeleted, false),
+      sql`${notes.id} IN (SELECT ${noteLabels.noteId} FROM ${noteLabels} WHERE ${noteLabels.labelId} = ${labelId})`,
+    ];
+
+    const query = db
+      .select()
+      .from(notes)
+      .where(and(...conditions))
+      .orderBy(desc(notes.isPinned), desc(notes.updatedAt));
+
+    const rows = limit !== undefined
+      ? await query.limit(limit).offset(offset)
+      : await query;
+
+    return this.attachChecklistsAndLabels(rows);
+  }
+
+  /**
    * Fetch archived notes.
    */
   static async getArchivedNotes(): Promise<NoteWithDetails[]> {
@@ -256,6 +283,41 @@ export class NotesRepository {
       .update(notes)
       .set({ isPinned, updatedAt: new Date() })
       .where(eq(notes.id, id));
+  }
+
+  /**
+   * Bulk update color for multiple notes.
+   */
+  static async bulkUpdateColor(noteIds: string[], color: string): Promise<void> {
+    if (noteIds.length === 0) return;
+    await db
+      .update(notes)
+      .set({ color, updatedAt: new Date() })
+      .where(sql`${notes.id} IN (${sql.join(noteIds.map((id) => sql`${id}`), sql`, `)})`);
+  }
+
+  /**
+   * Bulk update reminder for multiple notes.
+   */
+  static async bulkUpdateReminder(noteIds: string[], reminderAt: Date | null): Promise<void> {
+    if (noteIds.length === 0) return;
+    await db
+      .update(notes)
+      .set({ reminderAt, updatedAt: new Date() })
+      .where(sql`${notes.id} IN (${sql.join(noteIds.map((id) => sql`${id}`), sql`, `)})`);
+  }
+
+  /**
+   * Bulk add a label to multiple notes.
+   */
+  static async bulkAddLabel(noteIds: string[], labelId: string): Promise<void> {
+    if (noteIds.length === 0) return;
+    for (const noteId of noteIds) {
+      await db
+        .insert(noteLabels)
+        .values({ noteId, labelId })
+        .onConflictDoNothing();
+    }
   }
 
   /**

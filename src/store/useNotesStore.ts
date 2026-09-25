@@ -9,6 +9,7 @@ interface NotesState {
   folders: Folder[];
   labels: Label[];
   activeFolderId: string | null | 'all';
+  activeLabelId: string | null;
   searchQuery: string;
   selectedNoteIds: string[];
   isSelectionMode: boolean;
@@ -17,10 +18,11 @@ interface NotesState {
   isLoadingMore: boolean;
 
   // Actions
-  fetchNotes: (folderId?: string | null | 'all') => Promise<void>;
+  fetchNotes: (folderId?: string | null | 'all', labelId?: string | null) => Promise<void>;
   fetchMoreNotes: () => Promise<void>;
   fetchFoldersAndLabels: () => Promise<void>;
   setActiveFolder: (folderId: string | null | 'all') => Promise<void>;
+  setActiveLabel: (labelId: string | null) => Promise<void>;
   setSearchQuery: (query: string) => Promise<void>;
   saveNote: (
     noteData: NewNote,
@@ -40,6 +42,9 @@ interface NotesState {
   bulkMoveToTrash: () => Promise<void>;
   bulkMoveToFolder: (folderId: string | null) => Promise<void>;
   bulkTogglePin: (pinState: boolean) => Promise<void>;
+  bulkSetColor: (color: string) => Promise<void>;
+  bulkSetReminder: (date: Date | null) => Promise<void>;
+  bulkAddLabel: (labelId: string) => Promise<void>;
 }
 
 const PAGE_SIZE = 50;
@@ -49,6 +54,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   folders: [],
   labels: [],
   activeFolderId: 'all',
+  activeLabelId: null,
   searchQuery: '',
   selectedNoteIds: [],
   isSelectionMode: false,
@@ -56,8 +62,9 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   hasMoreNotes: true,
   isLoadingMore: false,
 
-  fetchNotes: async (folderId) => {
+  fetchNotes: async (folderId, labelId) => {
     const targetFolder = folderId !== undefined ? folderId : get().activeFolderId;
+    const targetLabel = labelId !== undefined ? labelId : get().activeLabelId;
     set({ isLoading: true });
     try {
       let result: NoteWithDetails[];
@@ -65,6 +72,9 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       if (get().searchQuery.trim().length > 0) {
         result = await NotesRepository.searchNotes(get().searchQuery);
         hasMore = false;
+      } else if (targetLabel) {
+        result = await NotesRepository.getActiveNotesByLabel(targetLabel, PAGE_SIZE, 0);
+        hasMore = result.length === PAGE_SIZE;
       } else {
         const folderParam = targetFolder === 'all' ? undefined : targetFolder;
         result = await NotesRepository.getActiveNotes(folderParam, PAGE_SIZE, 0);
@@ -75,6 +85,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         hasMoreNotes: hasMore,
         isLoading: false,
         activeFolderId: targetFolder,
+        activeLabelId: targetLabel,
       });
     } catch (e) {
       console.error('Error fetching notes:', e);
@@ -88,10 +99,16 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     }
     set({ isLoadingMore: true });
     try {
+      const targetLabel = get().activeLabelId;
       const targetFolder = get().activeFolderId;
-      const folderParam = targetFolder === 'all' ? undefined : targetFolder;
       const offset = get().notes.length;
-      const nextNotes = await NotesRepository.getActiveNotes(folderParam, PAGE_SIZE, offset);
+      let nextNotes: NoteWithDetails[];
+      if (targetLabel) {
+        nextNotes = await NotesRepository.getActiveNotesByLabel(targetLabel, PAGE_SIZE, offset);
+      } else {
+        const folderParam = targetFolder === 'all' ? undefined : targetFolder;
+        nextNotes = await NotesRepository.getActiveNotes(folderParam, PAGE_SIZE, offset);
+      }
       set((state) => ({
         notes: [...state.notes, ...nextNotes],
         hasMoreNotes: nextNotes.length === PAGE_SIZE,
@@ -116,8 +133,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   setActiveFolder: async (folderId) => {
-    set({ activeFolderId: folderId, searchQuery: '' });
-    await get().fetchNotes(folderId);
+    set({ activeFolderId: folderId, activeLabelId: null, searchQuery: '' });
+    await get().fetchNotes(folderId, null);
+  },
+
+  setActiveLabel: async (labelId) => {
+    set({ activeLabelId: labelId, activeFolderId: 'all', searchQuery: '' });
+    await get().fetchNotes('all', labelId);
   },
 
   setSearchQuery: async (query: string) => {
@@ -238,5 +260,27 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       selectedNoteIds: [],
       isSelectionMode: false,
     }));
+  },
+
+  bulkSetColor: async (color: string) => {
+    const ids = get().selectedNoteIds;
+    await NotesRepository.bulkUpdateColor(ids, color);
+    set((state) => ({
+      notes: state.notes.map((n) => (ids.includes(n.id) ? { ...n, color } : n)),
+    }));
+  },
+
+  bulkSetReminder: async (date: Date | null) => {
+    const ids = get().selectedNoteIds;
+    await NotesRepository.bulkUpdateReminder(ids, date);
+    set((state) => ({
+      notes: state.notes.map((n) => (ids.includes(n.id) ? { ...n, reminderAt: date } : n)),
+    }));
+  },
+
+  bulkAddLabel: async (labelId: string) => {
+    const ids = get().selectedNoteIds;
+    await NotesRepository.bulkAddLabel(ids, labelId);
+    await get().fetchNotes();
   },
 }));

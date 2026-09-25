@@ -1,6 +1,6 @@
 import { eq, asc } from 'drizzle-orm';
 import { db } from '../db';
-import { labels, Label, NewLabel } from '../schema';
+import { labels, Label, NewLabel, noteLabels } from '../schema';
 
 export class LabelsRepository {
   static async getAllLabels(): Promise<Label[]> {
@@ -23,6 +23,7 @@ export class LabelsRepository {
   }
 
   static async deleteLabel(id: string): Promise<void> {
+    await db.delete(noteLabels).where(eq(noteLabels.labelId, id));
     await db.delete(labels).where(eq(labels.id, id));
   }
 }
