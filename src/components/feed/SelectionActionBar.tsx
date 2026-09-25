@@ -17,12 +17,10 @@ import { FolderPickerModal } from '../editor/FolderPickerModal';
 
 interface SelectionActionBarProps {
   onMoveToFolderPress?: () => void;
-  onRearrangePress?: () => void;
 }
 
 export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({
   onMoveToFolderPress,
-  onRearrangePress,
 }) => {
   const { theme } = useSettingsStore();
   const {
@@ -150,24 +148,6 @@ export const SelectionActionBar: React.FC<SelectionActionBarProps> = ({
         >
           <Ionicons name="pricetag-outline" size={19} color={isDark ? '#E8EAED' : '#202124'} />
         </TouchableOpacity>
-
-        {/* Full Rearrange Button */}
-        {onRearrangePress && (
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={() => {
-              Haptics.selectionAsync();
-              onRearrangePress();
-            }}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Ionicons
-              name="swap-vertical-outline"
-              size={20}
-              color="#F59E0B"
-            />
-          </TouchableOpacity>
-        )}
 
         {/* Bulk Delete */}
         <TouchableOpacity

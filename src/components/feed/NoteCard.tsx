@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
+  Animated,
+  GestureResponderEvent,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,6 +25,8 @@ interface NoteCardProps {
   isSelectionMode?: boolean;
   onToggleSelection?: (id: string) => void;
   onTogglePin?: (id: string) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 const NoteCardComponent: React.FC<NoteCardProps> = ({
@@ -34,6 +38,8 @@ const NoteCardComponent: React.FC<NoteCardProps> = ({
   isSelectionMode: isSelectionModeProp,
   onToggleSelection,
   onTogglePin,
+  onDragStart,
+  onDragEnd,
 }) => {
   // If props are passed, use them directly (0 store subscription overhead for 1000 items)
   const isDark = isDarkProp ?? (useSettingsStore.getState().theme === 'dark');
@@ -41,6 +47,15 @@ const NoteCardComponent: React.FC<NoteCardProps> = ({
   const isSelectionMode = isSelectionModeProp ?? false;
 
   const colorStyle = resolveKeepColor(note.color, isDark);
+
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const touchStartY = useRef(0);
+  const touchStartX = useRef(0);
+  const hasMovedFar = useRef(false);
+  const isDragging = useRef(false);
+  const hasReordered = useRef(false);
+  const holdTimer = useRef<any>(null);
+  const [isDragElevated, setIsDragElevated] = useState(false);
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -64,6 +79,93 @@ const NoteCardComponent: React.FC<NoteCardProps> = ({
     }
   };
 
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    touchStartY.current = e.nativeEvent.pageY;
+    touchStartX.current = e.nativeEvent.pageX;
+    hasMovedFar.current = false;
+    isDragging.current = false;
+    hasReordered.current = false;
+
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+
+    holdTimer.current = setTimeout(() => {
+      isDragging.current = true;
+      setIsDragElevated(true);
+      onDragStart?.();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Animated.spring(scaleAnim, {
+        toValue: 1.05,
+        friction: 6,
+        tension: 60,
+        useNativeDriver: true,
+      }).start();
+    }, 220);
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    const currentY = e.nativeEvent.pageY;
+    const currentX = e.nativeEvent.pageX;
+    const dy = currentY - touchStartY.current;
+    const dx = currentX - touchStartX.current;
+
+    if (!isDragging.current) {
+      if (Math.abs(dy) > 8 || Math.abs(dx) > 8) {
+        hasMovedFar.current = true;
+        if (holdTimer.current) clearTimeout(holdTimer.current);
+      }
+    } else {
+      if (dy < -42) {
+        touchStartY.current = currentY;
+        hasReordered.current = true;
+        useNotesStore.getState().moveNote(note.id, 'up');
+        Haptics.selectionAsync();
+      } else if (dy > 42) {
+        touchStartY.current = currentY;
+        hasReordered.current = true;
+        useNotesStore.getState().moveNote(note.id, 'down');
+        Haptics.selectionAsync();
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+
+    if (isDragging.current) {
+      isDragging.current = false;
+      setIsDragElevated(false);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onDragEnd?.();
+
+      if (hasReordered.current) {
+        useNotesStore.getState().saveCurrentNoteOrder();
+      } else {
+        handleLongPress();
+      }
+    } else if (!hasMovedFar.current) {
+      handleCardPress();
+    }
+  };
+
+  const handleTouchCancel = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    if (isDragging.current) {
+      isDragging.current = false;
+      setIsDragElevated(false);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+      onDragEnd?.();
+    }
+  };
+
   const handlePinPress = (e: any) => {
     e.stopPropagation?.();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -84,16 +186,28 @@ const NoteCardComponent: React.FC<NoteCardProps> = ({
 
   return (
     <View style={styles.wrapper}>
-      <TouchableOpacity
-        activeOpacity={0.82}
-        onPress={handleCardPress}
-        onLongPress={handleLongPress}
+      <Animated.View
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         style={[
           styles.card,
           {
             backgroundColor: colorStyle.bg,
-            borderColor: isSelected ? '#F59E0B' : colorStyle.border,
-            borderWidth: isSelected ? 2.5 : 1,
+            borderColor: isDragElevated
+              ? '#F59E0B'
+              : isSelected
+              ? '#F59E0B'
+              : colorStyle.border,
+            borderWidth: isDragElevated || isSelected ? 2.5 : 1,
+            transform: [{ scale: scaleAnim }],
+            elevation: isDragElevated ? 12 : isSelected ? 4 : 1,
+            zIndex: isDragElevated ? 999 : 1,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: isDragElevated ? 6 : 1 },
+            shadowOpacity: isDragElevated ? 0.35 : 0.08,
+            shadowRadius: isDragElevated ? 10 : 3,
           },
         ]}
       >
@@ -282,7 +396,7 @@ const NoteCardComponent: React.FC<NoteCardProps> = ({
             </>
           )}
         </View>
-      </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 };

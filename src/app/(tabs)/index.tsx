@@ -20,7 +20,6 @@ import { KeepHeader } from '../../components/feed/KeepHeader';
 import { KeepBottomBar } from '../../components/feed/KeepBottomBar';
 import { SelectionActionBar } from '../../components/feed/SelectionActionBar';
 import { FolderDrawerModal } from '../../components/feed/FolderDrawerModal';
-import { ReorderNotesModal } from '../../components/feed/ReorderNotesModal';
 import { NoteWithDetails } from '../../db/repositories/notesRepository';
 
 type FeedItem =
@@ -51,7 +50,7 @@ export default function HomeScreen() {
 
   const isDark = theme === 'dark';
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [reorderModalVisible, setReorderModalVisible] = useState(false);
+  const [isDraggingFeedNote, setIsDraggingFeedNote] = useState(false);
 
   // Set lookup for O(1) selection check without re-rendering non-selected cards
   const selectedNoteIdSet = useMemo(() => new Set(selectedNoteIds), [selectedNoteIds]);
@@ -172,6 +171,8 @@ export default function HomeScreen() {
           onToggleSelection={handleToggleSelection}
           onTogglePin={handleTogglePin}
           folderName={folderName}
+          onDragStart={() => setIsDraggingFeedNote(true)}
+          onDragEnd={() => setIsDraggingFeedNote(false)}
         />
       );
     },
@@ -190,14 +191,11 @@ export default function HomeScreen() {
 
       {/* Top Header or Selection Bar */}
       {isSelectionMode ? (
-        <SelectionActionBar
-          onRearrangePress={() => setReorderModalVisible(true)}
-        />
+        <SelectionActionBar />
       ) : (
         <KeepHeader
           onMenuPress={() => setDrawerVisible(true)}
           onSettingsPress={() => router.push('/settings' as any)}
-          onReorderPress={() => setReorderModalVisible(true)}
         />
       )}
 
@@ -273,6 +271,7 @@ export default function HomeScreen() {
             keyExtractor={(item) => item.id}
             getItemType={(item) => item.type}
             renderItem={renderItem}
+            scrollEnabled={!isDraggingFeedNote}
             drawDistance={Platform.OS === 'android' ? 600 : 350}
             numColumns={viewMode === 'grid' ? 2 : 1}
             masonry={viewMode === 'grid'}
@@ -317,13 +316,6 @@ export default function HomeScreen() {
           setDrawerVisible(false);
           router.push('/settings' as any);
         }}
-      />
-
-      {/* Manual Drag & Drop Reorder Modal */}
-      <ReorderNotesModal
-        visible={reorderModalVisible}
-        onClose={() => setReorderModalVisible(false)}
-        isDark={isDark}
       />
     </SafeAreaView>
   );

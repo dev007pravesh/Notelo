@@ -46,7 +46,8 @@ interface NotesState {
   bulkSetReminder: (date: Date | null) => Promise<void>;
   bulkAddLabel: (labelId: string) => Promise<void>;
   reorderNotes: (orderedNotes: NoteWithDetails[]) => Promise<void>;
-  moveNote: (id: string, direction: 'up' | 'down') => Promise<void>;
+  moveNote: (id: string, direction: 'up' | 'down') => void;
+  saveCurrentNoteOrder: () => Promise<void>;
   resetNoteOrder: () => Promise<void>;
 }
 
@@ -296,7 +297,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     }
   },
 
-  moveNote: async (id: string, direction: 'up' | 'down') => {
+  moveNote: (id: string, direction: 'up' | 'down') => {
     const currentNotes = [...get().notes];
     const index = currentNotes.findIndex((n) => n.id === id);
     if (index === -1) return;
@@ -311,11 +312,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     currentNotes.splice(targetIndex, 0, movedNote);
 
     set({ notes: currentNotes });
+  },
 
+  saveCurrentNoteOrder: async () => {
     try {
-      await NotesRepository.updateNotesOrder(currentNotes.map((n) => n.id));
+      await NotesRepository.updateNotesOrder(get().notes.map((n) => n.id));
     } catch (e) {
-      console.error('Error persisting moved note:', e);
+      console.error('Error saving note order:', e);
     }
   },
 

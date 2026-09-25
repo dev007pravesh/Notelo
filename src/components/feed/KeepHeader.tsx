@@ -15,14 +15,9 @@ import { useNotesStore } from '../../store/useNotesStore';
 interface KeepHeaderProps {
   onMenuPress: () => void;
   onSettingsPress: () => void;
-  onReorderPress?: () => void;
 }
 
-export const KeepHeader: React.FC<KeepHeaderProps> = ({
-  onMenuPress,
-  onSettingsPress,
-  onReorderPress,
-}) => {
+export const KeepHeader: React.FC<KeepHeaderProps> = ({ onMenuPress, onSettingsPress }) => {
   const { theme, viewMode, setViewMode } = useSettingsStore();
   const { searchQuery, setSearchQuery } = useNotesStore();
 
@@ -78,24 +73,6 @@ export const KeepHeader: React.FC<KeepHeaderProps> = ({
 
         {/* Right Actions: View Toggle & Settings Avatar */}
         <View style={styles.rightActions}>
-          {onReorderPress && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              activeOpacity={0.6}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onReorderPress();
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="swap-vertical-outline"
-                size={20}
-                color={isDark ? '#E8EAED' : '#5F6368'}
-              />
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity
             style={styles.iconButton}
             activeOpacity={0.6}
