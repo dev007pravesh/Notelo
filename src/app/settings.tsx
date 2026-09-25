@@ -39,12 +39,39 @@ export default function SettingsScreen() {
   } = useSettingsStore();
 
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinStep, setPinStep] = useState<'create' | 'confirm'>('create');
   const [enteredPin, setEnteredPin] = useState('');
   const [firstPin, setFirstPin] = useState('');
   const [pinError, setPinError] = useState('');
+
+  // Handle Download / Save to Notelo Folder
+  const handleDownloadBackup = async (specificPath?: string) => {
+    try {
+      setIsDownloading(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const result = await BackupService.downloadBackupToDevice(specificPath);
+
+      if (result.success) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Backup Saved',
+          result.message || 'Backup file has been downloaded successfully to your Notelo folder.'
+        );
+      } else if (result.message && !result.message.includes('not granted')) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Download Failed', result.message);
+      }
+    } catch (e: any) {
+      console.error('Download backup error:', e);
+      Alert.alert('Download Failed', e?.message || 'Could not save backup to device');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Handle Backup Now
   const handleBackupNow = async () => {
@@ -59,7 +86,11 @@ export default function SettingsScreen() {
         'Backup Complete',
         `Successfully backed up ${result.manifest.totalNotes} notes and ${result.manifest.totalAttachments} attachments (${(result.size / 1024).toFixed(1)} KB).`,
         [
-          { text: 'OK' },
+          { text: 'Done', style: 'cancel' },
+          {
+            text: 'Save to Notelo',
+            onPress: () => handleDownloadBackup(result.backupPath),
+          },
           {
             text: 'Share / Export',
             onPress: () => BackupService.exportBackup(result.backupPath),
@@ -100,12 +131,17 @@ export default function SettingsScreen() {
               const result = await BackupService.pickAndRestoreBackup();
               if (result.success) {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert(
-                  'Restore Successful',
-                  result.manifest
-                    ? `Restored ${result.manifest.totalNotes} notes and ${result.manifest.totalAttachments} attachments.`
-                    : 'Notes and attachments restored successfully!'
-                );
+                let msg = 'Notes and attachments restored successfully!';
+                if (result.stats) {
+                  const { notesCount, activeNotesCount, trashNotesCount, foldersCount } = result.stats;
+                  msg = `Restored ${notesCount} note${notesCount === 1 ? '' : 's'} and ${foldersCount} folder${foldersCount === 1 ? '' : 's'}.`;
+                  if (trashNotesCount > 0) {
+                    msg += `\n\n📌 Note: ${activeNotesCount} active note on Home, ${trashNotesCount} note in Trash.`;
+                  }
+                } else if (result.manifest) {
+                  msg = `Restored ${result.manifest.totalNotes} notes and ${result.manifest.totalAttachments} attachments.`;
+                }
+                Alert.alert('Restore Successful', msg);
               } else if (result.message !== 'Backup selection cancelled') {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 Alert.alert('Restore Failed', result.message);
@@ -276,7 +312,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={[styles.primaryButton, isBackingUp && { opacity: 0.7 }]}
             onPress={handleBackupNow}
-            disabled={isBackingUp || isRestoring}
+            disabled={isBackingUp || isRestoring || isDownloading}
           >
             {isBackingUp ? (
               <ActivityIndicator color="#000000" size="small" />
@@ -288,6 +324,31 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
 
+          {/* Action: Save / Download to Notelo folder */}
+          <TouchableOpacity
+            style={[
+              styles.downloadButton,
+              {
+                backgroundColor: isDark ? '#1E293B' : '#EFF6FF',
+                borderColor: isDark ? '#334155' : '#BFDBFE',
+              },
+              isDownloading && { opacity: 0.7 },
+            ]}
+            onPress={() => handleDownloadBackup()}
+            disabled={isBackingUp || isRestoring || isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator color={isDark ? '#60A5FA' : '#2563EB'} size="small" />
+            ) : (
+              <>
+                <Feather name="folder" size={17} color={isDark ? '#60A5FA' : '#2563EB'} />
+                <Text style={[styles.downloadButtonText, { color: isDark ? '#60A5FA' : '#2563EB' }]}>
+                  Save to Downloads / Notelo
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
 
           {/* Secondary Actions */}
@@ -295,22 +356,22 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
               onPress={handleExportBackup}
-              disabled={isBackingUp || isRestoring}
+              disabled={isBackingUp || isRestoring || isDownloading}
             >
               <Feather name="share-2" size={17} color={tColors.secondaryBtnText} />
-              <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Export ZIP</Text>
+              <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Share ZIP</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.secondaryButton, { backgroundColor: tColors.secondaryBtnBg }]}
               onPress={handleRestore}
-              disabled={isBackingUp || isRestoring}
+              disabled={isBackingUp || isRestoring || isDownloading}
             >
               {isRestoring ? (
                 <ActivityIndicator color={tColors.secondaryBtnText} size="small" />
               ) : (
                 <>
-                  <Feather name="download" size={17} color={tColors.secondaryBtnText} />
+                  <Feather name="upload" size={17} color={tColors.secondaryBtnText} />
                   <Text style={[styles.secondaryButtonText, { color: tColors.secondaryBtnText }]}>Restore ZIP</Text>
                 </>
               )}
@@ -721,6 +782,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#000000',
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 10,
+  },
+  downloadButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttonRow: {
     flexDirection: 'row',

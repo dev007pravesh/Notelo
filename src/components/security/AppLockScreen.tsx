@@ -6,15 +6,16 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSequence,
   withTiming,
-  withSpring,
   FadeIn,
   FadeOut,
 } from 'react-native-reanimated';
@@ -22,14 +23,35 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const AppLockScreen: React.FC = () => {
-  const { biometricAuthEnabled, hasPasscode, verifyPasscode, setIsAppLocked } = useSettingsStore();
+  const { biometricAuthEnabled, verifyPasscode, setIsAppLocked, theme: settingTheme } = useSettingsStore();
+  const systemColorScheme = useColorScheme();
+  const isDark = settingTheme === 'dark' || (settingTheme === 'system' && systemColorScheme === 'dark');
+
   const [pin, setPin] = useState('');
   const [errorText, setErrorText] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
+  // Dynamic Theme Palette matching Google Keep aesthetic
+  const colors = {
+    bg: isDark ? '#1F1F1F' : '#FFFFFF',
+    surface: isDark ? '#28292C' : '#F8F9FA',
+    text: isDark ? '#E8EAED' : '#202124',
+    textSecondary: isDark ? '#9AA0A6' : '#5F6368',
+    primary: isDark ? '#FBBF24' : '#F59E0B',
+    badgeBg: isDark ? 'rgba(251, 191, 36, 0.12)' : 'rgba(245, 158, 11, 0.10)',
+    badgeBorder: isDark ? 'rgba(251, 191, 36, 0.28)' : 'rgba(245, 158, 11, 0.25)',
+    dotBorder: isDark ? '#3C4043' : '#D1D5DB',
+    keyBg: isDark ? '#28292C' : '#F1F3F4',
+    keyBorder: isDark ? '#3C4043' : '#E2E8F0',
+    keyText: isDark ? '#E8EAED' : '#202124',
+    actionColor: isDark ? '#9AA0A6' : '#5F6368',
+    error: '#EF4444',
+  };
+
   const shakeTranslateX = useSharedValue(0);
 
   const triggerShake = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     shakeTranslateX.value = withSequence(
       withTiming(-14, { duration: 50 }),
       withTiming(14, { duration: 50 }),
@@ -60,6 +82,7 @@ export const AppLockScreen: React.FC = () => {
         });
 
         if (result.success) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setIsAppLocked(false);
           return;
         }
@@ -78,6 +101,7 @@ export const AppLockScreen: React.FC = () => {
 
   const handleKeyPress = async (digit: string) => {
     if (pin.length >= 4) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const nextPin = pin + digit;
     setPin(nextPin);
     setErrorText('');
@@ -85,6 +109,7 @@ export const AppLockScreen: React.FC = () => {
     if (nextPin.length === 4) {
       const isValid = await verifyPasscode(nextPin);
       if (isValid) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsAppLocked(false);
       } else {
         triggerShake();
@@ -98,35 +123,58 @@ export const AppLockScreen: React.FC = () => {
 
   const handleDelete = () => {
     if (pin.length > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setPin(pin.slice(0, -1));
       setErrorText('');
     }
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(250)} style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+    <Animated.View
+      entering={FadeIn.duration(200)}
+      exiting={FadeOut.duration(250)}
+      style={[styles.container, { backgroundColor: colors.bg }]}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
       <SafeAreaView style={styles.safeArea}>
         {/* Header Icon & Title */}
         <View style={styles.header}>
-          <View style={styles.lockIconBadge}>
-            <Ionicons name="lock-closed" size={36} color="#6366F1" />
+          <View
+            style={[
+              styles.lockIconBadge,
+              { backgroundColor: colors.badgeBg, borderColor: colors.badgeBorder },
+            ]}
+          >
+            <Ionicons name="lock-closed" size={36} color={colors.primary} />
           </View>
-          <Text style={styles.title}>Notelo is Locked</Text>
-          <Text style={styles.subtitle}>Enter your 4-digit PIN to access your notes</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Notelo is Locked</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Enter your 4-digit PIN to access your notes
+          </Text>
         </View>
 
         {/* PIN Indicators */}
         <Animated.View style={[styles.pinDotsContainer, shakeAnimatedStyle]}>
           {[0, 1, 2, 3].map((index) => {
             const isFilled = pin.length > index;
+            const hasError = errorText.length > 0;
             return (
               <View
                 key={index}
                 style={[
                   styles.dot,
-                  isFilled && styles.dotFilled,
-                  errorText.length > 0 && styles.dotError,
+                  { borderColor: colors.dotBorder },
+                  isFilled && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                  hasError && {
+                    borderColor: colors.error,
+                    backgroundColor: colors.error,
+                  },
                 ]}
               />
             );
@@ -135,7 +183,9 @@ export const AppLockScreen: React.FC = () => {
 
         {/* Error message */}
         <View style={styles.errorContainer}>
-          {errorText.length > 0 && <Text style={styles.errorText}>{errorText}</Text>}
+          {errorText.length > 0 && (
+            <Text style={[styles.errorText, { color: colors.error }]}>{errorText}</Text>
+          )}
         </View>
 
         {/* Numeric Keypad */}
@@ -149,11 +199,17 @@ export const AppLockScreen: React.FC = () => {
               {row.map((digit) => (
                 <TouchableOpacity
                   key={digit}
-                  style={styles.keyButton}
+                  style={[
+                    styles.keyButton,
+                    {
+                      backgroundColor: colors.keyBg,
+                      borderColor: colors.keyBorder,
+                    },
+                  ]}
                   activeOpacity={0.6}
                   onPress={() => handleKeyPress(digit)}
                 >
-                  <Text style={styles.keyText}>{digit}</Text>
+                  <Text style={[styles.keyText, { color: colors.keyText }]}>{digit}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -167,18 +223,28 @@ export const AppLockScreen: React.FC = () => {
                 activeOpacity={0.6}
                 onPress={handleBiometricAuth}
               >
-                <MaterialCommunityIcons name="fingerprint" size={32} color="#818CF8" />
+                <MaterialCommunityIcons
+                  name="fingerprint"
+                  size={32}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
             ) : (
               <View style={styles.actionButton} />
             )}
 
             <TouchableOpacity
-              style={styles.keyButton}
+              style={[
+                styles.keyButton,
+                {
+                  backgroundColor: colors.keyBg,
+                  borderColor: colors.keyBorder,
+                },
+              ]}
               activeOpacity={0.6}
               onPress={() => handleKeyPress('0')}
             >
-              <Text style={styles.keyText}>0</Text>
+              <Text style={[styles.keyText, { color: colors.keyText }]}>0</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -186,7 +252,11 @@ export const AppLockScreen: React.FC = () => {
               activeOpacity={0.6}
               onPress={handleDelete}
             >
-              <Ionicons name="backspace-outline" size={26} color="#94A3B8" />
+              <Ionicons
+                name="backspace-outline"
+                size={26}
+                color={colors.actionColor}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -198,7 +268,6 @@ export const AppLockScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#0F172A',
     zIndex: 9999,
   },
   safeArea: {
@@ -216,23 +285,19 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.25)',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#F8FAFC',
     letterSpacing: 0.3,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#94A3B8',
     textAlign: 'center',
   },
   pinDotsContainer: {
@@ -247,16 +312,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#475569',
     backgroundColor: 'transparent',
-  },
-  dotFilled: {
-    backgroundColor: '#6366F1',
-    borderColor: '#6366F1',
-  },
-  dotError: {
-    borderColor: '#EF4444',
-    backgroundColor: '#EF4444',
   },
   errorContainer: {
     height: 24,
@@ -264,7 +320,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#F87171',
     fontWeight: '500',
   },
   keypad: {
@@ -282,16 +337,18 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(30, 41, 59, 0.75)',
     borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   keyText: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#F8FAFC',
   },
   actionButton: {
     width: 72,

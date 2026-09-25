@@ -108,8 +108,8 @@ export default function RootLayout() {
   
   return (
     <DatabaseProvider>
-      <SecurityWrapper>
-        <ThemeProvider>
+      <ThemeProvider>
+        <SecurityWrapper>
           <StatusBar style="light" /> 
           <Stack
             screenOptions={{
@@ -147,8 +147,8 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-        </ThemeProvider>
-      </SecurityWrapper>
+        </SecurityWrapper>
+      </ThemeProvider>
     </DatabaseProvider>
   );
 }

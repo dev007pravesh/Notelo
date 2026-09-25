@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import * as SQLite from 'expo-sqlite';
 import JSZip from 'jszip';
 import { Platform } from 'react-native';
 import { expoDb } from '../db/db';
@@ -16,6 +17,22 @@ export interface BackupManifest {
   totalNotes: number;
   totalAttachments: number;
   createdAt: string;
+}
+
+export interface RestoreStats {
+  foldersCount: number;
+  notesCount: number;
+  activeNotesCount: number;
+  trashNotesCount: number;
+  archivedNotesCount: number;
+  attachmentsCount: number;
+}
+
+export interface RestoreResult {
+  success: boolean;
+  manifest?: BackupManifest;
+  stats?: RestoreStats;
+  message: string;
 }
 
 export interface DriveBackupFile {
@@ -67,12 +84,9 @@ export class BackupService {
 
     const zip = new JSZip();
 
-    // 2. Read SQLite database file
-    const dbPath = expoDb.databasePath;
-    const dbBase64 = await FileSystem.readAsStringAsync(dbPath, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    zip.file('notelo.db', dbBase64, { base64: true });
+    // 2. Read SQLite database using native SQLite serialization (in-memory, scheme & permission independent)
+    const dbUint8Array = await expoDb.serializeAsync();
+    zip.file('notelo.db', dbUint8Array);
 
     // 3. Read media attachments
     let attachmentsCount = 0;
@@ -169,13 +183,140 @@ export class BackupService {
   }
 
   /**
-   * Pick a backup ZIP file and restore notelo.db and attachments offline.
+   * Download / Save backup ZIP directly to the device storage.
+   * On Android: uses StorageAccessFramework to create and save into a dedicated 'Notelo' folder (e.g. Downloads/Notelo).
+   * On iOS / other: falls back to native sharing with 'Save to Files' dialog.
    */
-  static async pickAndRestoreBackup(): Promise<{
+  static async downloadBackupToDevice(specificPath?: string): Promise<{
     success: boolean;
-    manifest?: BackupManifest;
+    folderName?: string;
+    filePath?: string;
     message: string;
   }> {
+    try {
+      let targetPath = specificPath;
+      let targetFileName = `notelo_backup_${Date.now()}.zip`;
+
+      if (!targetPath) {
+        const result = await this.createLocalBackup();
+        targetPath = result.backupPath;
+        targetFileName = result.fileName;
+      } else {
+        const parts = targetPath.split('/');
+        targetFileName = parts[parts.length - 1] || targetFileName;
+      }
+
+      if (Platform.OS === 'android') {
+        const { StorageAccessFramework } = FileSystem;
+        if (!StorageAccessFramework) {
+          await this.exportBackup(targetPath);
+          return { success: true, message: 'Shared via system sheet' };
+        }
+
+        // Request directory permission (suggesting Download folder initially)
+        let initialUri: string | undefined;
+        try {
+          initialUri = StorageAccessFramework.getUriForDirectoryInRoot('Download');
+        } catch {
+          // Ignore if getUriForDirectoryInRoot is unsupported on specific vendor ROMs
+        }
+
+        const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+
+        if (!permissions.granted) {
+          return {
+            success: false,
+            message: 'Folder access permission was not granted.',
+          };
+        }
+
+        const parentUri = permissions.directoryUri;
+        let noteloFolderUri = parentUri;
+
+        // Check if user already picked a Notelo folder or if we should create a 'Notelo' subfolder
+        const decodedParent = decodeURIComponent(parentUri);
+        const alreadyInNotelo =
+          decodedParent.endsWith('/Notelo') ||
+          decodedParent.endsWith('%2FNotelo') ||
+          decodedParent.endsWith(':Notelo');
+
+        if (!alreadyInNotelo) {
+          try {
+            const files = await StorageAccessFramework.readDirectoryAsync(parentUri);
+            const existingNotelo = files.find((uri) => {
+              const decoded = decodeURIComponent(uri);
+              return (
+                decoded.endsWith('/Notelo') ||
+                decoded.endsWith('%2FNotelo') ||
+                decoded.endsWith(':Notelo')
+              );
+            });
+
+            if (existingNotelo) {
+              noteloFolderUri = existingNotelo;
+            } else {
+              noteloFolderUri = await StorageAccessFramework.makeDirectoryAsync(parentUri, 'Notelo');
+            }
+          } catch (e) {
+            console.warn('Could not create Notelo subfolder, saving in chosen folder:', e);
+            noteloFolderUri = parentUri;
+          }
+        }
+
+        // Read local backup zip base64
+        const zipBase64 = await FileSystem.readAsStringAsync(targetPath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        // Create file inside Notelo folder
+        const cleanBaseName = targetFileName.replace(/\.zip$/i, '');
+        const createdFileUri = await StorageAccessFramework.createFileAsync(
+          noteloFolderUri,
+          cleanBaseName,
+          'application/zip'
+        );
+
+        await FileSystem.writeAsStringAsync(createdFileUri, zipBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        return {
+          success: true,
+          folderName: 'Notelo',
+          filePath: createdFileUri,
+          message: 'Backup downloaded successfully to your Notelo folder!',
+        };
+      } else {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          throw new Error('Sharing is not available on this device');
+        }
+
+        await Sharing.shareAsync(targetPath, {
+          mimeType: 'application/zip',
+          dialogTitle: 'Save Notelo Backup to Files',
+          UTI: 'public.zip-archive',
+        });
+
+        return {
+          success: true,
+          folderName: 'Files',
+          message: 'Saved to Files successfully!',
+        };
+      }
+    } catch (e: any) {
+      console.error('Failed to download backup to device:', e);
+      return {
+        success: false,
+        message: e?.message || 'Failed to save backup to device',
+      };
+    }
+  }
+
+  /**
+   * Pick a backup ZIP file and restore notelo.db and attachments offline.
+   */
+  static async pickAndRestoreBackup(): Promise<RestoreResult> {
     try {
       const pickerResult = await DocumentPicker.getDocumentAsync({
         type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream', '*/*'],
@@ -197,11 +338,7 @@ export class BackupService {
   /**
    * Restore notelo.db and attachments from a specific ZIP file URI.
    */
-  static async restoreBackupFromFile(fileUri: string): Promise<{
-    success: boolean;
-    manifest?: BackupManifest;
-    message: string;
-  }> {
+  static async restoreBackupFromFile(fileUri: string): Promise<RestoreResult> {
     try {
       const zipBase64 = await FileSystem.readAsStringAsync(fileUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -241,23 +378,272 @@ export class BackupService {
         }
       }
 
-      // 4. Overwrite SQLite database file
+      // 4. Overwrite SQLite database safely using atomic transactional table restore
+      // Extract notelo.db from ZIP into a temporary SQLite database file
       const dbBase64 = await dbFile.async('base64');
-      const dbPath = expoDb.databasePath;
+      const sqliteDir = `${FileSystem.documentDirectory}SQLite/`;
+      await this.ensureDirectoryExists(sqliteDir);
+      const tempRestoreUri = `${sqliteDir}temp_restore.db`;
 
-      await FileSystem.writeAsStringAsync(dbPath, dbBase64, {
+      // Clean up previous temporary database if exists
+      await FileSystem.deleteAsync(tempRestoreUri, { idempotent: true });
+      await FileSystem.deleteAsync(`${tempRestoreUri}-wal`, { idempotent: true });
+      await FileSystem.deleteAsync(`${tempRestoreUri}-shm`, { idempotent: true });
+
+      await FileSystem.writeAsStringAsync(tempRestoreUri, dbBase64, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // 5. Run WAL checkpoint to synchronize
+      const tempDb = SQLite.openDatabaseSync('temp_restore.db');
+
+      let tempFolders: any[] = [];
+      let tempLabels: any[] = [];
+      let tempNotes: any[] = [];
+      let tempChecklists: any[] = [];
+      let tempNoteLabels: any[] = [];
+      let tempAttachments: any[] = [];
+
+      try {
+        tempFolders = tempDb.getAllSync<any>('SELECT * FROM folders');
+      } catch (err) {
+        console.warn('[BackupService] Could not read folders from backup db:', err);
+      }
+
+      try {
+        tempLabels = tempDb.getAllSync<any>('SELECT * FROM labels');
+      } catch (err) {
+        console.warn('[BackupService] Could not read labels from backup db:', err);
+      }
+
+      try {
+        tempNotes = tempDb.getAllSync<any>('SELECT * FROM notes');
+      } catch (err) {
+        console.warn('[BackupService] Could not read notes from backup db:', err);
+      }
+
+      try {
+        tempChecklists = tempDb.getAllSync<any>('SELECT * FROM checklist_items');
+      } catch (err) {
+        console.warn('[BackupService] Could not read checklist_items from backup db:', err);
+      }
+
+      try {
+        tempNoteLabels = tempDb.getAllSync<any>('SELECT * FROM note_labels');
+      } catch (err) {
+        console.warn('[BackupService] Could not read note_labels from backup db:', err);
+      }
+
+      try {
+        tempAttachments = tempDb.getAllSync<any>('SELECT * FROM attachments');
+      } catch (err) {
+        console.warn('[BackupService] Could not read attachments from backup db:', err);
+      }
+
+      console.log(
+        `[BackupService] Extracted ${tempFolders.length} folders, ${tempNotes.length} notes, ${tempChecklists.length} checklists, ${tempAttachments.length} attachments`
+      );
+
+      // Close and cleanup temporary DB
+      try {
+        tempDb.closeSync();
+      } catch {}
+
+      try {
+        SQLite.deleteDatabaseSync('temp_restore.db');
+      } catch {
+        await FileSystem.deleteAsync(tempRestoreUri, { idempotent: true });
+      }
+
+      // Safeguard: Check that we actually extracted something if manifest indicated notes
+      if (tempNotes.length === 0 && tempFolders.length === 0 && manifest && manifest.totalNotes > 0) {
+        throw new Error('Failed to read notes from backup archive. The backup database could not be loaded.');
+      }
+
+      // Atomic in-database replacement (prevents all OS file lock and Java IOException issues)
+      expoDb.withTransactionSync(() => {
+        expoDb.execSync('PRAGMA foreign_keys = OFF;');
+
+        expoDb.execSync(`
+          DELETE FROM note_labels;
+          DELETE FROM checklist_items;
+          DELETE FROM attachments;
+          DELETE FROM notes;
+          DELETE FROM labels;
+          DELETE FROM folders;
+        `);
+
+        try {
+          expoDb.execSync('DELETE FROM notes_fts;');
+        } catch {}
+
+        // Insert Folders
+        if (tempFolders.length > 0) {
+          const folderStmt = expoDb.prepareSync(
+            'INSERT OR REPLACE INTO folders (id, name, color, icon, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+          );
+          try {
+            for (const f of tempFolders) {
+              folderStmt.executeSync([
+                f.id,
+                f.name,
+                f.color ?? '#64748B',
+                f.icon ?? 'folder',
+                f.order_index ?? 0,
+                f.created_at ?? Math.floor(Date.now() / 1000),
+              ]);
+            }
+          } finally {
+            folderStmt.finalizeSync();
+          }
+        }
+
+        // Insert Labels
+        if (tempLabels.length > 0) {
+          const labelStmt = expoDb.prepareSync(
+            'INSERT OR REPLACE INTO labels (id, name, created_at) VALUES (?, ?, ?)'
+          );
+          try {
+            for (const l of tempLabels) {
+              labelStmt.executeSync([
+                l.id,
+                l.name,
+                l.created_at ?? Math.floor(Date.now() / 1000),
+              ]);
+            }
+          } finally {
+            labelStmt.finalizeSync();
+          }
+        }
+
+        // Insert Notes
+        if (tempNotes.length > 0) {
+          const noteStmt = expoDb.prepareSync(`
+            INSERT OR REPLACE INTO notes (
+              id, folder_id, title, content, note_type, color,
+              is_pinned, is_archived, is_deleted, deleted_at,
+              is_locked, reminder_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          try {
+            for (const n of tempNotes) {
+              noteStmt.executeSync([
+                n.id,
+                n.folder_id ?? null,
+                n.title ?? '',
+                n.content ?? '',
+                n.note_type ?? 'text',
+                n.color ?? '#FFFFFF',
+                n.is_pinned ? 1 : 0,
+                n.is_archived ? 1 : 0,
+                n.is_deleted ? 1 : 0,
+                n.deleted_at ?? null,
+                n.is_locked ? 1 : 0,
+                n.reminder_at ?? null,
+                n.created_at ?? Math.floor(Date.now() / 1000),
+                n.updated_at ?? Math.floor(Date.now() / 1000),
+              ]);
+            }
+          } finally {
+            noteStmt.finalizeSync();
+          }
+
+          // Populate FTS5 for restored notes
+          try {
+            const ftsStmt = expoDb.prepareSync('INSERT INTO notes_fts (note_id, title, content) VALUES (?, ?, ?)');
+            try {
+              for (const n of tempNotes) {
+                if (!n.is_deleted) {
+                  ftsStmt.executeSync([n.id, n.title ?? '', n.content ?? '']);
+                }
+              }
+            } finally {
+              ftsStmt.finalizeSync();
+            }
+          } catch (ftsErr) {
+            console.warn('FTS rebuild skipped:', ftsErr);
+          }
+        }
+
+        // Insert Checklist Items
+        if (tempChecklists.length > 0) {
+          const checklistStmt = expoDb.prepareSync(
+            'INSERT OR REPLACE INTO checklist_items (id, note_id, text, is_completed, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+          );
+          try {
+            for (const c of tempChecklists) {
+              checklistStmt.executeSync([
+                c.id,
+                c.note_id,
+                c.text ?? '',
+                c.is_completed ? 1 : 0,
+                c.order_index ?? 0,
+                c.created_at ?? Math.floor(Date.now() / 1000),
+              ]);
+            }
+          } finally {
+            checklistStmt.finalizeSync();
+          }
+        }
+
+        // Insert Note Labels
+        if (tempNoteLabels.length > 0) {
+          const nlStmt = expoDb.prepareSync(
+            'INSERT OR REPLACE INTO note_labels (note_id, label_id) VALUES (?, ?)'
+          );
+          try {
+            for (const nl of tempNoteLabels) {
+              nlStmt.executeSync([nl.note_id, nl.label_id]);
+            }
+          } finally {
+            nlStmt.finalizeSync();
+          }
+        }
+
+        // Insert Attachments
+        if (tempAttachments.length > 0) {
+          const attachStmt = expoDb.prepareSync(
+            'INSERT OR REPLACE INTO attachments (id, note_id, local_uri, mime_type, file_size, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+          );
+          try {
+            for (const a of tempAttachments) {
+              const fileName = a.local_uri ? a.local_uri.split('/').pop() : '';
+              const correctedUri = fileName ? `${this.ATTACHMENTS_DIR}${fileName}` : a.local_uri;
+              attachStmt.executeSync([
+                a.id,
+                a.note_id,
+                correctedUri,
+                a.mime_type,
+                a.file_size ?? 0,
+                a.created_at ?? Math.floor(Date.now() / 1000),
+              ]);
+            }
+          } finally {
+            attachStmt.finalizeSync();
+          }
+        }
+
+        expoDb.execSync('PRAGMA foreign_keys = ON;');
+      });
+
       this.checkpointDatabase();
 
-      // 6. Reload notes and folders in Zustand store
-      await useNotesStore.getState().fetchNotes();
+      // 5. Reload notes, folders, and labels in Zustand store
+      await useNotesStore.getState().fetchFoldersAndLabels();
+      await useNotesStore.getState().fetchNotes('all');
+
+      const stats: RestoreStats = {
+        foldersCount: tempFolders.length,
+        notesCount: tempNotes.length,
+        activeNotesCount: tempNotes.filter((n) => !n.is_deleted && !n.is_archived).length,
+        trashNotesCount: tempNotes.filter((n) => n.is_deleted).length,
+        archivedNotesCount: tempNotes.filter((n) => n.is_archived && !n.is_deleted).length,
+        attachmentsCount: tempAttachments.length,
+      };
 
       return {
         success: true,
         manifest,
+        stats,
         message: 'Notes and attachments restored successfully!',
       };
     } catch (e: any) {

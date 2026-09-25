@@ -8,7 +8,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotesStore } from '../../store/useNotesStore';
@@ -44,6 +44,13 @@ export default function HomeScreen() {
     fetchNotes();
     fetchFoldersAndLabels();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotes();
+      fetchFoldersAndLabels();
+    }, [fetchNotes, fetchFoldersAndLabels])
+  );
 
   const onRefresh = useCallback(async () => {
     await fetchNotes();
