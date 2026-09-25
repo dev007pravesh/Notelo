@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { DatabaseProvider } from '../db/DatabaseProvider';
 import { SecurityWrapper } from '../components/security/SecurityWrapper';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 // Detect if running in Expo Go (notifications are not supported there since SDK 53)
 const isExpoGo =
@@ -20,6 +21,9 @@ const isExpoGo =
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const { theme } = useSettingsStore();
+  const isDark = theme === 'dark';
+
   const [loaded, error] = useFonts({
     'Danymeka': require('./../../assets/fonts/Danymeka-2D.otf'),
     'cafenty': require('./../../assets/fonts/Cafenty.ttf'),
@@ -32,9 +36,6 @@ export default function RootLayout() {
     if (loaded || error) {
       SplashScreen.hideAsync();
     }
-    setTimeout(() => {
-      setStatusBarStyle("light");
-    }, 0);
   }, [loaded, error]);
 
   // Handle notification response (tap on reminder)
@@ -110,10 +111,10 @@ export default function RootLayout() {
     <DatabaseProvider>
       <ThemeProvider>
         <SecurityWrapper>
-          <StatusBar style="light" /> 
+          <StatusBar style={isDark ? 'light' : 'dark'} /> 
           <Stack
             screenOptions={{
-              contentStyle: { backgroundColor: '#000000' }
+              contentStyle: { backgroundColor: isDark ? '#1F1F1F' : '#FFFFFF' }
             }}
           >
             <Stack.Screen

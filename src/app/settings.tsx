@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import { useSettingsStore, ViewMode, ThemeMode } from '../store/useSettingsStore';
 import { BackupService, BackupManifest } from '../services/backupService';
 import dayjs from 'dayjs';
@@ -238,28 +239,39 @@ export default function SettingsScreen() {
   const isDark = theme === 'dark';
 
   const tColors = {
-    bg: isDark ? '#1F1F1F' : '#F8FAFC',
-    headerBg: isDark ? '#202124' : '#FFFFFF',
+    bg: isDark ? '#1F1F1F' : '#FFFFFF',
+    headerBg: isDark ? '#1F1F1F' : '#FFFFFF',
     headerBorder: isDark ? '#3C4043' : '#E8EAED',
-    cardBg: isDark ? '#202124' : '#FFFFFF',
+    cardBg: isDark ? '#202124' : '#F8F9FA',
     cardBorder: isDark ? '#3C4043' : '#E8EAED',
-    metaRowBg: isDark ? '#18191B' : '#F1F3F4',
+    metaRowBg: isDark ? '#28292C' : '#F1F3F4',
     textPrimary: isDark ? '#E8EAED' : '#202124',
     textSecondary: isDark ? '#9AA0A6' : '#5F6368',
-    secondaryBtnBg: isDark ? '#2D2E30' : '#F1F3F4',
+    secondaryBtnBg: isDark ? '#2D2E30' : '#E8EAED',
     secondaryBtnText: isDark ? '#E8EAED' : '#202124',
-    segmentBg: isDark ? '#18191B' : '#E8EAED',
-    segmentActiveBg: isDark ? '#2D2E30' : '#FFFFFF',
+    segmentBg: isDark ? '#28292C' : '#E8EAED',
+    segmentActiveBg: isDark ? '#3C4043' : '#FFFFFF',
     segmentTextActive: isDark ? '#FFFFFF' : '#202124',
     segmentTextInactive: isDark ? '#9AA0A6' : '#5F6368',
     divider: isDark ? '#3C4043' : '#E8EAED',
     modalBg: isDark ? '#1F1F1F' : '#FFFFFF',
-    keyBg: isDark ? '#2D2E30' : '#F1F3F4',
+    keyBg: isDark ? '#28292C' : '#F1F3F4',
     keyText: isDark ? '#E8EAED' : '#202124',
+    primaryBtnBg: isDark ? '#FBBF24' : '#F59E0B',
+    primaryBtnText: '#202124',
+    downloadBtnBg: isDark ? 'rgba(251, 191, 36, 0.12)' : 'rgba(245, 158, 11, 0.1)',
+    downloadBtnBorder: isDark ? 'rgba(251, 191, 36, 0.3)' : 'rgba(245, 158, 11, 0.35)',
+    downloadBtnText: isDark ? '#FBBF24' : '#D97706',
+    accent: isDark ? '#FBBF24' : '#F59E0B',
+    accentLight: isDark ? 'rgba(251, 191, 36, 0.15)' : 'rgba(245, 158, 11, 0.12)',
+    switchTrackFalse: isDark ? '#3C4043' : '#E0E0E0',
+    switchTrackTrue: isDark ? '#FBBF24' : '#F59E0B',
+    successText: isDark ? '#34D399' : '#10B981',
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: tColors.bg }]} edges={['top']}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Header */}
       <View
         style={[
@@ -286,8 +298,8 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionHeader, { color: tColors.textSecondary }]}>BACKUP & RESTORE</Text>
         <View style={[styles.card, { backgroundColor: tColors.cardBg, borderColor: tColors.cardBorder }]}>
           <View style={styles.backupHeader}>
-            <View style={styles.backupIconContainer}>
-              <MaterialCommunityIcons name="shield-sync-outline" size={28} color="#10B981" />
+            <View style={[styles.backupIconContainer, { backgroundColor: tColors.accentLight }]}>
+              <MaterialCommunityIcons name="shield-sync-outline" size={28} color={tColors.accent} />
             </View>
             <View style={styles.backupInfo}>
               <Text style={[styles.backupTitle, { color: tColors.textPrimary }]}>Zero-Server Backup</Text>
@@ -310,16 +322,20 @@ export default function SettingsScreen() {
 
           {/* Action: Backup Now */}
           <TouchableOpacity
-            style={[styles.primaryButton, isBackingUp && { opacity: 0.7 }]}
+            style={[
+              styles.primaryButton,
+              { backgroundColor: tColors.primaryBtnBg },
+              isBackingUp && { opacity: 0.7 },
+            ]}
             onPress={handleBackupNow}
             disabled={isBackingUp || isRestoring || isDownloading}
           >
             {isBackingUp ? (
-              <ActivityIndicator color="#000000" size="small" />
+              <ActivityIndicator color={tColors.primaryBtnText} size="small" />
             ) : (
               <>
-                <Ionicons name="cloud-upload-outline" size={20} color="#000000" />
-                <Text style={styles.primaryButtonText}>Back Up Now</Text>
+                <Ionicons name="cloud-upload-outline" size={20} color={tColors.primaryBtnText} />
+                <Text style={[styles.primaryButtonText, { color: tColors.primaryBtnText }]}>Back Up Now</Text>
               </>
             )}
           </TouchableOpacity>
@@ -329,8 +345,8 @@ export default function SettingsScreen() {
             style={[
               styles.downloadButton,
               {
-                backgroundColor: isDark ? '#1E293B' : '#EFF6FF',
-                borderColor: isDark ? '#334155' : '#BFDBFE',
+                backgroundColor: tColors.downloadBtnBg,
+                borderColor: tColors.downloadBtnBorder,
               },
               isDownloading && { opacity: 0.7 },
             ]}
@@ -338,11 +354,11 @@ export default function SettingsScreen() {
             disabled={isBackingUp || isRestoring || isDownloading}
           >
             {isDownloading ? (
-              <ActivityIndicator color={isDark ? '#60A5FA' : '#2563EB'} size="small" />
+              <ActivityIndicator color={tColors.downloadBtnText} size="small" />
             ) : (
               <>
-                <Feather name="folder" size={17} color={isDark ? '#60A5FA' : '#2563EB'} />
-                <Text style={[styles.downloadButtonText, { color: isDark ? '#60A5FA' : '#2563EB' }]}>
+                <Feather name="folder" size={17} color={tColors.downloadBtnText} />
+                <Text style={[styles.downloadButtonText, { color: tColors.downloadBtnText }]}>
                   Save to Downloads / Notelo
                 </Text>
               </>
@@ -391,7 +407,7 @@ export default function SettingsScreen() {
             <Switch
               value={autoBackupEnabled}
               onValueChange={setAutoBackupEnabled}
-              trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#10B981' }}
+              trackColor={{ false: tColors.switchTrackFalse, true: tColors.switchTrackTrue }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -410,7 +426,7 @@ export default function SettingsScreen() {
             <Switch
               value={appLockEnabled}
               onValueChange={handleToggleAppLock}
-              trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#F59E0B' }}
+              trackColor={{ false: tColors.switchTrackFalse, true: tColors.switchTrackTrue }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -428,7 +444,7 @@ export default function SettingsScreen() {
                 <Switch
                   value={biometricAuthEnabled}
                   onValueChange={setBiometricAuthEnabled}
-                  trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#F59E0B' }}
+                  trackColor={{ false: tColors.switchTrackFalse, true: tColors.switchTrackTrue }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -444,7 +460,7 @@ export default function SettingsScreen() {
                   setPinModalVisible(true);
                 }}
               >
-                <Text style={[styles.clickableRowText, { color: '#F59E0B' }]}>Change Passcode</Text>
+                <Text style={[styles.clickableRowText, { color: tColors.accent }]}>Change Passcode</Text>
                 <Ionicons name="chevron-forward" size={18} color={tColors.textSecondary} />
               </TouchableOpacity>
             </>
@@ -582,7 +598,7 @@ export default function SettingsScreen() {
           <View style={[styles.cardDivider, { backgroundColor: tColors.divider }]} />
           <View style={styles.row}>
             <Text style={[styles.rowTitle, { color: tColors.textPrimary }]}>Privacy Architecture</Text>
-            <Text style={[styles.metaValue, { color: '#10B981' }]}>100% Offline & Private</Text>
+            <Text style={[styles.metaValue, { color: tColors.successText }]}>100% Offline & Private</Text>
           </View>
         </View>
       </ScrollView>
@@ -604,7 +620,7 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.pinContent}>
-            <MaterialCommunityIcons name="lock-outline" size={48} color="#F59E0B" />
+            <MaterialCommunityIcons name="lock-outline" size={48} color={tColors.accent} />
             <Text style={[styles.pinPrompt, { color: tColors.textPrimary }]}>
               {pinStep === 'create' ? 'Enter a 4-digit passcode' : 'Confirm your 4-digit passcode'}
             </Text>
@@ -617,7 +633,10 @@ export default function SettingsScreen() {
                   style={[
                     styles.dot,
                     { borderColor: tColors.divider },
-                    enteredPin.length > index && [styles.dotFilled, { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }],
+                    enteredPin.length > index && [
+                      styles.dotFilled,
+                      { backgroundColor: tColors.accent, borderColor: tColors.accent },
+                    ],
                   ]}
                 />
               ))}
@@ -672,7 +691,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F12',
+    backgroundColor: '#1F1F1F',
   },
   header: {
     flexDirection: 'row',
@@ -681,7 +700,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2027',
+    borderBottomColor: '#3C4043',
   },
   backButton: {
     padding: 6,
@@ -706,15 +725,15 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#1A1A22',
+    backgroundColor: '#202124',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#262734',
+    borderColor: '#3C4043',
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#262734',
+    backgroundColor: '#3C4043',
     marginVertical: 14,
   },
   backupHeader: {
@@ -726,7 +745,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -747,7 +765,7 @@ const styles = StyleSheet.create({
   backupMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#121217',
+    backgroundColor: '#28292C',
     padding: 12,
     borderRadius: 10,
     marginBottom: 14,
@@ -770,7 +788,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   primaryButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#F59E0B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -781,7 +799,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000000',
+    color: '#202124',
   },
   downloadButton: {
     flexDirection: 'row',
@@ -806,7 +824,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#252632',
+    backgroundColor: '#2D2E30',
     paddingVertical: 12,
     borderRadius: 10,
     gap: 6,
@@ -839,12 +857,12 @@ const styles = StyleSheet.create({
   },
   clickableRowText: {
     fontSize: 14,
-    color: '#6366F1',
+    color: '#F59E0B',
     fontWeight: '600',
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#121217',
+    backgroundColor: '#28292C',
     borderRadius: 8,
     padding: 3,
   },
@@ -857,20 +875,22 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   segmentOptionActive: {
-    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
   },
   segmentText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#9CA3AF',
   },
   segmentTextActive: {
-    color: '#000000',
     fontWeight: '700',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0F0F12',
+    backgroundColor: '#1F1F1F',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -907,8 +927,8 @@ const styles = StyleSheet.create({
     borderColor: '#4B5563',
   },
   dotFilled: {
-    backgroundColor: '#6366F1',
-    borderColor: '#6366F1',
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
   },
   errorText: {
     color: '#EF4444',
@@ -929,7 +949,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#1E1F29',
+    backgroundColor: '#28292C',
     alignItems: 'center',
     justifyContent: 'center',
   },
